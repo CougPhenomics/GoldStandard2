@@ -1,4 +1,4 @@
-# exclude everything except directories
+# exclude everything except subdirectories
 *
 !*/
 
@@ -7,7 +7,7 @@
 !scripts/*
 !src/*
 !src/*/*
-!capturesettings/*
+!capturesettings/**
 !reports/*
 !data/*.csv
 !output/*
@@ -15,7 +15,6 @@
 #do not include output .csv files!
 #do not put comments on same line as exceptions!
 # use git lfs track /output/*/*.json to version json output files
-
 
 .R*
 *.log
