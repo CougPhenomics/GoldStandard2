@@ -1,0 +1,111 @@
+<xml>
+  <Pages value="1" />
+  <Settings>
+    <Sensor>
+      <Rotatefliptype0 value="1">
+        <min value="0" />
+        <max value="7" />
+      </Rotatefliptype0>
+      <Crosshairs0 value="0">
+        <min value="0" />
+        <max value="1" />
+      </Crosshairs0>
+      <exposure0 value="250000">
+        <min value="10" />
+        <max value="26843545" />
+      </exposure0>
+      <gain0 value="0">
+        <min value="0" />
+        <max value="3200" />
+      </gain0>
+      <gamma0 value="150">
+        <min value="25" />
+        <max value="400" />
+      </gamma0>
+      <rwhitebalanceratio0 value="123">
+        <min value="80" />
+        <max value="300" />
+      </rwhitebalanceratio0>
+      <bwhitebalanceratio0 value="200">
+        <min value="80" />
+        <max value="300" />
+      </bwhitebalanceratio0>
+      <Numberofrecordings0 value="1">
+        <min value="1" />
+        <max value="1000" />
+      </Numberofrecordings0>
+      <Recordinginterval0 value="1000">
+        <min value="1" />
+        <max value="60000" />
+      </Recordinginterval0>
+      <Rotatefliptype1 value="4">
+        <min value="0" />
+        <max value="7" />
+      </Rotatefliptype1>
+      <Crosshairs1 value="0">
+        <min value="0" />
+        <max value="1" />
+      </Crosshairs1>
+      <exposure1 value="1000000">
+        <min value="10" />
+        <max value="26843545" />
+      </exposure1>
+      <gain1 value="0">
+        <min value="0" />
+        <max value="3200" />
+      </gain1>
+      <gamma1 value="100">
+        <min value="25" />
+        <max value="400" />
+      </gamma1>
+      <rwhitebalanceratio1 value="123">
+        <min value="80" />
+        <max value="300" />
+      </rwhitebalanceratio1>
+      <bwhitebalanceratio1 value="145">
+        <min value="80" />
+        <max value="300" />
+      </bwhitebalanceratio1>
+      <Numberofrecordings1 value="1">
+        <min value="1" />
+        <max value="1000" />
+      </Numberofrecordings1>
+      <Recordinginterval1 value="1000">
+        <min value="1" />
+        <max value="60000" />
+      </Recordinginterval1>
+    </Sensor>
+    <System>
+      <Switchbacklight value="0">
+        <min value="0" />
+        <max value="1" />
+      </Switchbacklight>
+      <Switchcameralight value="1">
+        <min value="0" />
+        <max value="1" />
+      </Switchcameralight>
+    </System>
+    <Offset>
+      <xinmm value="70">
+        <min value="45" />
+        <max value="95" />
+      </xinmm>
+      <yinmm value="580">
+        <min value="560" />
+        <max value="610" />
+      </yinmm>
+      <zinmm value="420">
+        <min value="380" />
+        <max value="560" />
+      </zinmm>
+    </Offset>
+    <Millimeterperpixelx value="0.04">
+      <min value="0" />
+      <max value="100000000" />
+    </Millimeterperpixelx>
+    <Millimeterperpixely value="0.04">
+      <min value="0" />
+      <max value="100000000" />
+    </Millimeterperpixely>
+  </Settings>
+</xml>

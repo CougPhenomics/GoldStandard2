@@ -1,0 +1,89 @@
+<xml>
+  <Pages value="1" />
+  <Settings>
+    <Sensor>
+      <exposure0 value="15">
+        <min value="15" />
+        <max value="120" />
+      </exposure0>
+      <gain0 value="3">
+        <min value="3" />
+        <max value="187" />
+      </gain0>
+      <rotatefliptype0 value="0">
+        <min value="0" />
+        <max value="7" />
+      </rotatefliptype0>
+      <Numberofrecordings0 value="1">
+        <min value="1" />
+        <max value="100" />
+      </Numberofrecordings0>
+      <Recordinginterval0 value="1000">
+        <min value="1" />
+        <max value="60000" />
+      </Recordinginterval0>
+      <Rotatefliptype0 value="1">
+        <min value="0" />
+        <max value="7" />
+      </Rotatefliptype0>
+      <Crosshairs0 value="0">
+        <min value="0" />
+        <max value="1" />
+      </Crosshairs0>
+      <Gain0 value="1">
+        <min value="1" />
+        <max value="20" />
+      </Gain0>
+      <Damping0 value="2">
+        <min value="0" />
+        <max value="5" />
+      </Damping0>
+      <MeasLight0 value="1">
+        <min value="0" />
+        <max value="20" />
+      </MeasLight0>
+      <MeasFreq0 value="0">
+        <min value="0" />
+        <max value="3" />
+      </MeasFreq0>
+      <ActLight0 value="0">
+        <min value="0" />
+        <max value="20" />
+      </ActLight0>
+      <ActWidth0 value="0">
+        <min value="0" />
+        <max value="900" />
+      </ActWidth0>
+      <SatLight0 value="10">
+        <min value="1" />
+        <max value="10" />
+      </SatLight0>
+      <Script0 value="2">
+        <min value="0" />
+        <max value="10" />
+      </Script0>
+    </Sensor>
+    <Offset>
+      <xinmm value="55">
+        <min value="25" />
+        <max value="75" />
+      </xinmm>
+      <yinmm value="535">
+        <min value="510" />
+        <max value="560" />
+      </yinmm>
+      <zinmm value="525">
+        <min value="380" />
+        <max value="600" />
+      </zinmm>
+    </Offset>
+    <Millimeterperpixelx value="0">
+      <min value="0" />
+      <max value="100000000" />
+    </Millimeterperpixelx>
+    <Millimeterperpixely value="0">
+      <min value="0" />
+      <max value="100000000" />
+    </Millimeterperpixely>
+  </Settings>
+</xml>
