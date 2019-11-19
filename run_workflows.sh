@@ -6,12 +6,12 @@ python \
 $CONDA_PREFIX/bin/plantcv-workflow.py \
 --dir data/raw_snapshots/vis \
 --workflow scripts/visworkflow.py \
---type tif \
+--type png \
 --json $outdir/vis.json \
 --outdir $outdir \
 --adaptor filename \
---delimiter "(.{2})-(.+)-(\d{4}-\d{2}-\d{2} \d{2}_\d{2}_\d{2})-(.+)" \
---timestampformat "%%Y-%%m-%%d %%H_%%M_%%S" \
+--delimiter "(.{2})-(.+)-(\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2})-(.+)" \
+--timestampformat "%%Y%%m%%dT%%H%%M%%S" \
 --meta plantbarcode,measurementlabel,timestamp,camera \
 --cpu 12 \
 --writeimg \

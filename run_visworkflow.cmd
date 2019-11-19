@@ -1,15 +1,18 @@
-python %CONDA_PREFIX%/Scripts/plantcv-workflow.py --workflow vis.py ^
-    --dir data/raw_snapshots/vis ^
+SET outdir=output/vistest
+mkdir "%outdir%"
+
+ipython %CONDA_PREFIX%/Scripts/plantcv-workflow.py -- ^
+    --workflow scripts/visworkflow.py ^
+    --dir data/testimages2/vis ^
     --type png ^
-    --outdir output/vis ^
-    --json output/vis/results.json ^
+    --outdir %outdir% ^
+    --json %outdir%/results.json ^
     --adaptor filename ^
     --delimiter - ^
-    --meta plantbarcode-measurementlabel-timestamp-camera ^
-    -T 4 ^
+    --meta plantbarcode,measurementlabel,timestamp,camera ^
+    --cpu 4 ^
     --writeimg ^
     --other_args="--debugdir debug-images" ^
-    --create ^
-    --match plantbarcode:A3
+    --match plantbarcode:A6
 
-python %CONDA_PREFIX%/Scripts/plantcv-utils.py json2csv --json output/vis/results.json --csv output/vis/results.csv
+ipython %CONDA_PREFIX%/Scripts/plantcv-utils.py -- json2csv --json %outdir%/results.json --csv %outdir%/results.csv
