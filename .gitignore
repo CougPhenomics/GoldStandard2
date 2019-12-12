@@ -5,10 +5,10 @@
 # except these 
 !/*
 !scripts/*
-!src/*
-!src/*/*
-!capturesettings/**
+!src/**
+# !src/*/*
 !reports/*
+!data/capturesettings/**
 !data/**.csv
 !output/*
 !output/*/*.json 
@@ -20,3 +20,4 @@
 .R*
 *.log
 *.ipynb
+*.pyc
