@@ -364,7 +364,7 @@ else:
 dfgrps = df2.groupby(['experiment', 'sampleid', 'jobdate', 'parameter'])
 grplist = []
 for grp, grpdf in dfgrps:
-    print(grp)#'%s ---' % (grp))
+    # print(grp)#'%s ---' % (grp))
     grplist.append(image_avg(grpdf))
 df_avg = pd.concat(grplist)
 
