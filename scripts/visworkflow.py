@@ -41,7 +41,7 @@ def main():
     # mm
     # see pixel_resolution.xlsx for calibration curve for pixel to mm translation
     pixelresolution = 0.052
-    
+
     # The result file should exist if plantcv-workflow.py was run
     if os.path.exists(args.result):
         # Open the result file
@@ -67,13 +67,24 @@ def main():
     imagename = os.path.splitext(fn)[0]
 
     # create mask
-    imga = pcv.rgb2gray_lab(img,'a')
-    mask = pcv.threshold.binary(imga, 120, 255, 'dark')
+    corrected_img = pcv.transform.nonuniform_illumination(img=imga, ksize=31)
+
+    imga = pcv.rgb2gray_lab(img, 'a')
+    maska = pcv.threshold.binary(imga, 135, 255, 'dark')
+    imgb = pcv.rgb2gray_lab(img, 'b')
+    maskb = pcv.threshold.binary(imgb, 165, 255, 'light')
+    mask = pcv.logical_and(maska, pcv.invert(maskb))
+    mask = pcv.fill(mask, 650)
     mask = pcv.closing(mask, np.ones((5,5)))
-    mask = pcv.fill(mask, 450)
-    mask = pcv.dilate(mask, 2, 2)
-    
+    pcv.apply_mask(img, mask4, 'white')
     final_mask = np.zeros_like(mask)
+
+
+    # mask = pcv.logical_and(thresh_a, thresh_b)
+    mask = pcv.fill(thresh_o, 200)
+    final_mask = pcv.dilate(mask, 2, 1)
+
+
 
     # Compute greenness
     # split color channels
@@ -113,12 +124,12 @@ def main():
             datatype=int,
             value=i,
             label='#')
-        
+
         roi_obj, hierarchy_obj, submask, obj_area = pcv.roi_objects(
             img, roi_contour=rc_i, roi_hierarchy=rh_i, object_contour=c, obj_hierarchy=h, roi_type='partial')
-        
+
         if obj_area == 0:
-            
+
             print('\t!!! No object found in ROI', str(i))
             pcv.outputs.add_observation(
                 variable='plantarea',
@@ -130,7 +141,7 @@ def main():
                 label='sq mm')
 
         else:
- 
+
             # Combine multiple objects
             # ple plant objects within an roi together
             plant_object, plant_mask = pcv.object_composition(
@@ -148,10 +159,10 @@ def main():
                 datatype="<class 'float'>",
                 value=float(grnindex),
                 label='/1')
-        
+
             # Analyze all colors
-#             hist = pcv.analyze_color(img, plant_mask, 'all')
-            
+            #             hist = pcv.analyze_color(img, plant_mask, 'all')
+
             # Analyze the shape of the current plant
             shape_img = pcv.analyze_object(img, plant_object, plant_mask)
             plant_area = pcv.outputs.observations['area']['value'] * pixelresolution**2
@@ -163,7 +174,7 @@ def main():
                 datatype="<class 'float'>",
                 value=plant_area,
                 label='sq mm')
-            
+
         # end if-else
 
         # At this point we have observations for one plant
@@ -187,7 +198,7 @@ def main():
 #             os.makedirs(imgdir, exist_ok=True)
 #             pcv.print_image(hist, os.path.join(imgdir, imagename + '_' + str(i) + '_colorhist.png'))
 
-    # end roi loop
+# end roi loop
 
     if args.writeimg:
         # save grnness image of entire tray

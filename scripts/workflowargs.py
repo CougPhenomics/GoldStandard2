@@ -17,10 +17,10 @@ plt.rcParams['figure.figsize'] = [15,15]
 
 class options():
     def __init__(self):
-        self.image = "c:/users/dominikschneider/Documents/phenomics/GoldStandard2/data/testimages/vis/A3-GoldStandard2_RGB-20190719T161032-VIS0.png"
+        self.image = "data/vistest/D5_GoldStandard2_RGB_20190804T044024_VIS0_0.png"
         self.outdir = "output/vistest"
         self.result = "output/vistest/result.json"
-        self.regex = "(.{2})-(.+)-(\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2})-(.+)"
+        self.regex = "(.{2})_(.+_.+)_(\d{8}T\d{6})_(.+)_(\d{1})"
         self.debug = 'plot'
         self.debugdir = 'debug/vistest'
 
