@@ -8,6 +8,8 @@ import re
 import string
 import json
 from plantcv import plantcv as pcv
+from skimage import filters
+from skimage import morphology
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
@@ -67,24 +69,15 @@ def main():
     imagename = os.path.splitext(fn)[0]
 
     # create mask
-    corrected_img = pcv.transform.nonuniform_illumination(img=imga, ksize=31)
-
     imga = pcv.rgb2gray_lab(img, 'a')
-    maska = pcv.threshold.binary(imga, 135, 255, 'dark')
-    imgb = pcv.rgb2gray_lab(img, 'b')
-    maskb = pcv.threshold.binary(imgb, 165, 255, 'light')
-    mask = pcv.logical_and(maska, pcv.invert(maskb))
-    mask = pcv.fill(mask, 650)
-    mask = pcv.closing(mask, np.ones((5,5)))
-    pcv.apply_mask(img, mask4, 'white')
+    # try all filters in scikit to find method to automatically define threshold
+    # allt = filters.try_all_threshold(imga,figsize=(12,12))
+    thresha = filters.threshold_isodata(image=imga)
+    maska = pcv.threshold.binary(imga, thresha, 255, 'dark')
+    mask = pcv.fill(maska, 800)
+    mask = pcv.closing(mask, np.ones((5, 5)))
+    # im = pcv.visualize.pseudocolor(imga, mask = mask)
     final_mask = np.zeros_like(mask)
-
-
-    # mask = pcv.logical_and(thresh_a, thresh_b)
-    mask = pcv.fill(thresh_o, 200)
-    final_mask = pcv.dilate(mask, 2, 1)
-
-
 
     # Compute greenness
     # split color channels
@@ -181,7 +174,7 @@ def main():
         # We can write these out to a unique results file
         # Here I will name the results file with the ROI ID combined with the original result filename
         basename, ext = os.path.splitext(args.result)
-        filename = basename + "_" + str(i) + ext
+        filename = basename + "-roi" + str(i) + ext
         # Save the existing metadata to the new file
         with open(filename, "w") as r:
             json.dump(metadata, r)
@@ -192,7 +185,7 @@ def main():
         if args.writeimg and obj_area != 0:
             imgdir = os.path.join(args.outdir, 'shape_images', plantbarcode)
             os.makedirs(imgdir, exist_ok=True)
-            pcv.print_image(shape_img, os.path.join(imgdir, imagename + '_' + str(i) + '_shape.png'))
+            pcv.print_image(shape_img, os.path.join(imgdir, imagename + '-roi' + str(i) + '-shape.png'))
 
 #             imgdir = os.path.join(args.outdir, 'colorhist_images', plantbarcode)
 #             os.makedirs(imgdir, exist_ok=True)
@@ -209,7 +202,7 @@ def main():
         gi_img = add_scalebar(
             gi_img, pixelresolution=pixelresolution, barwidth=20, barlocation='lower left')
         gi_img.set_size_inches(6, 6, forward=False)
-        gi_img.savefig(os.path.join(imgdir, imagename + '_greenness.png'), bbox_inches='tight')
+        gi_img.savefig(os.path.join(imgdir, imagename + '-greenness.png'), bbox_inches='tight')
         gi_img.clf()
 
 # end of function!
