@@ -36,7 +36,7 @@ pixelresolution = 0.2
 
 # %% Import tif file information based on the filenames. If extract_frames=True it will save each frame form the multiframe TIF to a separate file in data/pimframes/ with a numeric suffix
 fdf = import_snapshots.import_snapshots(indir, camera='psii')
-
+fdf = fdf.query('jobdate > "2019-07-17"')#issues with psII camera before 7-17-2019
 # %% Define the frames from the PSII measurements and merge this information with the filename information
 pimframes = pd.read_csv(os.path.join('data', 'pimframes_map.csv'),
                         skipinitialspace=True)
@@ -114,34 +114,40 @@ def image_avg(fundf):
     if param_name == 'FvFm':
         # create mask
         mask = createmasks.psIImask(img)
-
-        # find objects and setup roi
-        c, h = pcv.find_objects(img, mask)
         roi_c, roi_h = pcv.roi.multi(img,
-                                     coord=(250, 200),
-                                     radius=80,
-                                     spacing=(0, 220),
-                                     ncols=1,
-                                     nrows=2)
+                                    coord=(250, 200),
+                                    radius=80,
+                                    spacing=(0, 220),
+                                    ncols=1,
+                                    nrows=2)
 
-        # setup individual roi plant masks
-        newmask = np.zeros_like(mask)
+        if len(np.unique(mask)) == 1:
+            c = []
+            YII = mask
+            NPQ = mask
+            newmask = mask
+        else:    
+            # find objects and setup roi
+            c, h = pcv.find_objects(img, mask)
 
-        # compute fv/fm and save to file
-        Fv, hist_fvfm = pcv.fluor_fvfm(fdark=fdark,
-                                       fmin=imgmin,
-                                       fmax=img,
-                                       mask=mask,
-                                       bins=128)
-        YII = np.divide(Fv,
-                        img,
-                        out=out_flt.copy(),
-                        where=np.logical_and(mask > 0, img > 0))
+            # setup individual roi plant masks
+            newmask = np.zeros_like(mask)
+
+            # compute fv/fm and save to file
+            Fv, hist_fvfm = pcv.fluor_fvfm(fdark=fdark,
+                                        fmin=imgmin,
+                                        fmax=img,
+                                        mask=mask,
+                                        bins=128)
+            YII = np.divide(Fv,
+                            img,
+                            out=out_flt.copy(),
+                            where=np.logical_and(mask > 0, img > 0))
+
+            # NPQ is 0
+            NPQ = np.zeros_like(YII)
+
         cv2.imwrite(os.path.join(fmaxdir, outfn + '_fvfm.tif'), YII)
-
-        # NPQ is 0
-        NPQ = np.zeros_like(YII)
-
         # print Fm
         cv2.imwrite(os.path.join(fmaxdir, outfn + '_fmax.tif'), img)
         # NPQ will always be an array of 0s
@@ -150,32 +156,37 @@ def image_avg(fundf):
         # use cv2 to read image becase pcv.readimage will save as input_image.png overwriting img
         newmask = cv2.imread(os.path.join(maskdir, basefn + '-FvFm_mask.png'),
                              -1)
+        if len(np.unique(newmask)) == 1:
+            YII = newmask
+            NPQ = newmask
+            
+        else:
+            # compute YII
+            Fvp, hist_yii = pcv.fluor_fvfm(fdark,
+                                        fmin=imgmin,
+                                        fmax=img,
+                                        mask=newmask,
+                                        bins=128)
+            # make sure to initialize with out=. using where= provides random values at False pixels. you will get a strange result. newmask comes from Fm instead of Fm' so they can be different
+            #newmask<0, img>0 = FALSE: not part of plant but fluorescence detected.
+            #newmask>0, img<=0 = FALSE: part of plant in Fm but no fluorescence detected <- this is likely the culprit because pcv.apply_mask doesn't always solve issue.
+            YII = np.divide(Fvp,
+                            img,
+                            out=out_flt.copy(),
+                            where=np.logical_and(newmask > 0, img > 0))
 
-        # compute YII
-        Fvp, hist_yii = pcv.fluor_fvfm(fdark,
-                                       fmin=imgmin,
-                                       fmax=img,
-                                       mask=newmask,
-                                       bins=128)
-        # make sure to initialize with out=. using where= provides random values at False pixels. you will get a strange result. newmask comes from Fm instead of Fm' so they can be different
-        #newmask<0, img>0 = FALSE: not part of plant but fluorescence detected.
-        #newmask>0, img<=0 = FALSE: part of plant in Fm but no fluorescence detected <- this is likely the culprit because pcv.apply_mask doesn't always solve issue.
-        YII = np.divide(Fvp,
-                        img,
-                        out=out_flt.copy(),
-                        where=np.logical_and(newmask > 0, img > 0))
+            # compute NPQ
+            Fm = cv2.imread(os.path.join(fmaxdir, basefn + '-FvFm_fmax.tif'), -1)
+            NPQ = np.divide(Fm,
+                            img,
+                            out=out_flt.copy(),
+                            where=np.logical_and(newmask > 0, img > 0))
+            NPQ = np.subtract(NPQ,
+                            1,
+                            out=out_flt.copy(),
+                            where=np.logical_and(NPQ >= 1, newmask > 0))
+        
         cv2.imwrite(os.path.join(fmaxdir, outfn + '_yii.tif'), YII)
-
-        # compute NPQ
-        Fm = cv2.imread(os.path.join(fmaxdir, basefn + '-FvFm_fmax.tif'), -1)
-        NPQ = np.divide(Fm,
-                        img,
-                        out=out_flt.copy(),
-                        where=np.logical_and(newmask > 0, img > 0))
-        NPQ = np.subtract(NPQ,
-                          1,
-                          out=out_flt.copy(),
-                          where=np.logical_and(NPQ >= 1, newmask > 0))
         cv2.imwrite(os.path.join(fmaxdir, outfn + '_npq.tif'), NPQ)
     # end if-else Fv/Fm
 
@@ -194,27 +205,10 @@ def image_avg(fundf):
     plantarea = []
     ithroi = []
     inbounds = []
-    i = 0
-    rc = roi_c[i]
-    for i, rc in enumerate(roi_c):
-        # Store iteration Number
-        ithroi.append(int(i))
-        ithroi.append(int(i))  # append twice so each image has a value.
-        # extract ith hierarchy
-        rh = roi_h[i]
-
-        # Filter objects based on being in the defined ROI
-        roi_obj, hierarchy_obj, submask, obj_area = pcv.roi_objects(
-            img,
-            roi_contour=rc,
-            roi_hierarchy=rh,
-            object_contour=c,
-            obj_hierarchy=h,
-            roi_type='partial')
-
-        if obj_area == 0:
-            print('!!! No plant detected in ROI ', str(i))
-
+    if len(c) == 0:
+        
+        for i, rc in enumerate(roi_c):
+        # each variable needs to be stored 2 x #roi
             frame_avg.append(np.nan)
             frame_avg.append(np.nan)
             yii_avg.append(np.nan)
@@ -228,43 +222,85 @@ def image_avg(fundf):
             inbounds.append(False)
             inbounds.append(False)
             plantarea.append(0)
-            plantarea.append(0)
+            plantarea.append(0)    
+        # Store iteration Number even if there are no objects in image
+            ithroi.append(int(i))
+            ithroi.append(int(i))  # append twice so each image has a value.
+        
+    else:
+        # i = 0
+        # rc = roi_c[i]
+        
+        for i, rc in enumerate(roi_c):
+            # Store iteration Number
+            ithroi.append(int(i))
+            ithroi.append(int(i))  # append twice so each image has a value.
+            # extract ith hierarchy
+            rh = roi_h[i]
 
-        else:
+            # Filter objects based on being in the defined ROI
+            roi_obj, hierarchy_obj, submask, obj_area = pcv.roi_objects(
+                img,
+                roi_contour=rc,
+                roi_hierarchy=rh,
+                object_contour=c,
+                obj_hierarchy=h,
+                roi_type='partial')
 
-            # Combine multiple plant objects within an roi together
-            plant_contour, plant_mask = pcv.object_composition(
-                img=img, contours=roi_obj, hierarchy=hierarchy_obj)
+            if obj_area == 0:
+                print('!!! No plant detected in ROI ', str(i))
 
-            #combine plant masks after roi filter
-            if param_name == 'FvFm':
-                newmask = pcv.image_add(newmask, plant_mask)
+                frame_avg.append(np.nan)
+                frame_avg.append(np.nan)
+                yii_avg.append(np.nan)
+                yii_avg.append(np.nan)
+                yii_std.append(np.nan)
+                yii_std.append(np.nan)
+                npq_avg.append(np.nan)
+                npq_avg.append(np.nan)
+                npq_std.append(np.nan)
+                npq_std.append(np.nan)
+                inbounds.append(False)
+                inbounds.append(False)
+                plantarea.append(0)
+                plantarea.append(0)
 
-            # Calc mean and std dev of fluoresence, YII, and NPQ and save to list
-            frame_avg.append(masked_stats.mean(imgmin, plant_mask))
-            frame_avg.append(masked_stats.mean(img, plant_mask))
-            # need double because there are two images per loop
-            yii_avg.append(masked_stats.mean(YII, plant_mask))
-            yii_avg.append(masked_stats.mean(YII, plant_mask))
-            yii_std.append(masked_stats.std(YII, plant_mask))
-            yii_std.append(masked_stats.std(YII, plant_mask))
-            npq_avg.append(masked_stats.mean(NPQ, plant_mask))
-            npq_avg.append(masked_stats.mean(NPQ, plant_mask))
-            npq_std.append(masked_stats.std(NPQ, plant_mask))
-            npq_std.append(masked_stats.std(NPQ, plant_mask))
-            plantarea.append(obj_area * pixelresolution**2)
-            plantarea.append(obj_area * pixelresolution**2)
+            else:
 
-            # Check if plant is compeltely within the frame of the image
-            inbounds.append(pcv.within_frame(plant_mask))
-            inbounds.append(pcv.within_frame(plant_mask))
+                # Combine multiple plant objects within an roi together
+                plant_contour, plant_mask = pcv.object_composition(
+                    img=img, contours=roi_obj, hierarchy=hierarchy_obj)
 
-        # end try-except-else
-    # end roi loop
+                #combine plant masks after roi filter
+                if param_name == 'FvFm':
+                    newmask = pcv.image_add(newmask, plant_mask)
 
+                # Calc mean and std dev of fluoresence, YII, and NPQ and save to list
+                frame_avg.append(masked_stats.mean(imgmin, plant_mask))
+                frame_avg.append(masked_stats.mean(img, plant_mask))
+                # need double because there are two images per loop
+                yii_avg.append(masked_stats.mean(YII, plant_mask))
+                yii_avg.append(masked_stats.mean(YII, plant_mask))
+                yii_std.append(masked_stats.std(YII, plant_mask))
+                yii_std.append(masked_stats.std(YII, plant_mask))
+                npq_avg.append(masked_stats.mean(NPQ, plant_mask))
+                npq_avg.append(masked_stats.mean(NPQ, plant_mask))
+                npq_std.append(masked_stats.std(NPQ, plant_mask))
+                npq_std.append(masked_stats.std(NPQ, plant_mask))
+                plantarea.append(obj_area * pixelresolution**2)
+                plantarea.append(obj_area * pixelresolution**2)
+
+                # Check if plant is compeltely within the frame of the image
+                inbounds.append(pcv.within_frame(plant_mask))
+                inbounds.append(pcv.within_frame(plant_mask))
+
+            # end try-except-else
+        # end roi loop
+    # end if there are objects from roi filter
+    
     # save mask of all plants to file after roi filter
     if param_name == 'FvFm':
-        pcv.print_image(newmask, os.path.join(maskdir, outfn + '_mask.png'))
+        pcv.print_image(newmask, os.path.join(maskdir, outfn + '-mask.png'))
 
     # Output a pseudocolor of NPQ and YII for each induction period for each image
     imgdir = os.path.join(outdir, 'pseudocolor_images', sampleid)
@@ -346,9 +382,9 @@ if pcv.params.debug == 'print':
 
 # %% Testing dataframe
 # # If you need to test new function or threshold values you can subset your dataframe to analyze some images
-# df2 = df.query('((sampleid == "A1" or sampleid == "A3") and (jobdate == "2019-07-16" or jobdate == "2019-07-20"))')# | (sampleid == "B7" & jobdate == "2019-11-20")')
+# df2 = df.query('((sampleid == "A6" or sampleid == "A3") and (jobdate == "2019-07-10" or jobdate == "2019-07-20"))')# | (sampleid == "B7" & jobdate == "2019-11-20")')
 # # del df2
-# fundf = df2.query('(sampleid == "A1" & parameter=="t80_ALon")')
+# fundf = df2.query('(sampleid == "A6" and parameter=="FvFm" and jobdate == "2019-07-12")')
 # del fundf
 # # # fundf
 # # end testing
