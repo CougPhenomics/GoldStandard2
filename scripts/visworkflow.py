@@ -69,14 +69,18 @@ def main():
     imagename = os.path.splitext(fn)[0]
 
     # create mask
-    imga = pcv.rgb2gray_lab(img, 'a')
-    # try all filters in scikit to find method to automatically define threshold
-    # allt = filters.try_all_threshold(imga,figsize=(12,12))
-    thresha = filters.threshold_isodata(image=imga)
-    maska = pcv.threshold.binary(imga, thresha, 255, 'dark')
-    mask = pcv.fill(maska, 800)
-    mask = pcv.closing(mask, np.ones((5, 5)))
-    # im = pcv.visualize.pseudocolor(imga, mask = mask)
+    imgh = pcv.rgb2gray_hsv(img, 'h')
+    # maskh = pcv.threshold.binary(imgh, 12, 255, 'light')
+    # m2 = pcv.threshold.binary(imgh, 50, 255, 'dark')
+    _,newgray = pcv.threshold.custom_range(imgh, [12], [50]) #removes background
+
+    gblur = pcv.gaussian_blur(newgray, (3,3))
+    maskh = pcv.threshold.otsu(gblur, 255)
+    maskh = pcv.fill(maskh, 900)
+    mask = pcv.closing(maskh, np.ones((8,8)))
+    # imga = pcv.rgb2gray_lab(img, 'a')
+    # il = pcv.visualize.pseudocolor(imga,mask = maskh)
+
     final_mask = np.zeros_like(mask)
 
     # Compute greenness
