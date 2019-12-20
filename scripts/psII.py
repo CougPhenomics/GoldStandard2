@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import warnings
+import importlib
 warnings.filterwarnings("ignore", module="matplotlib")
 warnings.filterwarnings("ignore", module='plotnine')
 
@@ -147,18 +148,17 @@ def image_avg(fundf):
             # NPQ is 0
             NPQ = np.zeros_like(YII)
 
-        cv2.imwrite(os.path.join(fmaxdir, outfn + '_fvfm.tif'), YII)
+        cv2.imwrite(os.path.join(fmaxdir, outfn + '-fvfm.tif'), YII)
         # print Fm
-        cv2.imwrite(os.path.join(fmaxdir, outfn + '_fmax.tif'), img)
+        cv2.imwrite(os.path.join(fmaxdir, outfn + '-fmax.tif'), img)
         # NPQ will always be an array of 0s
 
     else:  # compute YII and NPQ if parameter is other than FvFm
         # use cv2 to read image becase pcv.readimage will save as input_image.png overwriting img
-        newmask = cv2.imread(os.path.join(maskdir, basefn + '-FvFm_mask.png'),
-                             -1)
+        newmask = cv2.imread(os.path.join(maskdir, basefn + '-FvFm-mask.png'),-1)
         if len(np.unique(newmask)) == 1:
-            YII = newmask
-            NPQ = newmask
+            YII = np.zeros_like(newmask)
+            NPQ = np.zeros_like(newmask)
             
         else:
             # compute YII
@@ -176,7 +176,7 @@ def image_avg(fundf):
                             where=np.logical_and(newmask > 0, img > 0))
 
             # compute NPQ
-            Fm = cv2.imread(os.path.join(fmaxdir, basefn + '-FvFm_fmax.tif'), -1)
+            Fm = cv2.imread(os.path.join(fmaxdir, basefn + '-FvFm-fmax.tif'), -1)
             NPQ = np.divide(Fm,
                             img,
                             out=out_flt.copy(),
@@ -186,8 +186,8 @@ def image_avg(fundf):
                             out=out_flt.copy(),
                             where=np.logical_and(NPQ >= 1, newmask > 0))
         
-        cv2.imwrite(os.path.join(fmaxdir, outfn + '_yii.tif'), YII)
-        cv2.imwrite(os.path.join(fmaxdir, outfn + '_npq.tif'), NPQ)
+        cv2.imwrite(os.path.join(fmaxdir, outfn + '-yii.tif'), YII)
+        cv2.imwrite(os.path.join(fmaxdir, outfn + '-npq.tif'), NPQ)
     # end if-else Fv/Fm
 
     # Make as many copies of incoming dataframe as there are ROIs so all results can be saved
@@ -228,8 +228,8 @@ def image_avg(fundf):
             ithroi.append(int(i))  # append twice so each image has a value.
         
     else:
-        # i = 0
-        # rc = roi_c[i]
+        i = 1
+        rc = roi_c[i]
         
         for i, rc in enumerate(roi_c):
             # Store iteration Number
@@ -320,7 +320,7 @@ def image_avg(fundf):
                                         barlocation='lower left')
     # If you change the output size and resolution you will need to adjust the  timelapse video script
     npq_img.set_size_inches(6, 6, forward=False)
-    npq_img.savefig(os.path.join(imgdir, outfn + '_NPQ.png'),
+    npq_img.savefig(os.path.join(imgdir, outfn + '-NPQ.png'),
                     bbox_inches='tight',
                     dpi=150)
     npq_img.clf()
@@ -340,7 +340,7 @@ def image_avg(fundf):
                                     barwidth=20,
                                     barlocation='lower left')
     yii_img.set_size_inches(6, 6, forward=False)
-    yii_img.savefig(os.path.join(imgdir, outfn + '_YII.png'),
+    yii_img.savefig(os.path.join(imgdir, outfn + '-YII.png'),
                 bbox_inches='tight',
                 dpi=150)
     yii_img.clf()
@@ -382,9 +382,9 @@ if pcv.params.debug == 'print':
 
 # %% Testing dataframe
 # # If you need to test new function or threshold values you can subset your dataframe to analyze some images
-# df2 = df.query('((sampleid == "A6" or sampleid == "A3") and (jobdate == "2019-07-10" or jobdate == "2019-07-20"))')# | (sampleid == "B7" & jobdate == "2019-11-20")')
+# df2 = df.query('((sampleid == "A6" or sampleid == "A3") and (jobdate == "2019-07-18" or jobdate == "2019-07-18"))')# | (sampleid == "B7" & jobdate == "2019-11-20")')
 # # del df2
-# fundf = df2.query('(sampleid == "A6" and parameter=="FvFm" and jobdate == "2019-07-12")')
+# fundf = df2.query('(sampleid == "A6" and parameter=="t40_ALon" and jobdate == "2019-07-18")')
 # del fundf
 # # # fundf
 # # end testing
@@ -395,6 +395,9 @@ if 'df2' not in globals():
     df2 = df
 else:
     print('df2 already exists!')
+
+# removing this image because it causes python to crash with "Floating point exception (core dumped)"
+df2 = df2.query('not (sampleid=="A6" and jobdate == "2019-07-18" and parameter=="t40_ALon")')
 
 # Each unique combination of treatment, sampleid, jobdate, parameter should result in exactly 2 rows in the dataframe that correspond to Fo/Fm or F'/Fm'
 dfgrps = df2.groupby(['experiment', 'sampleid', 'jobdate', 'parameter'])
