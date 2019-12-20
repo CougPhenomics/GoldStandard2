@@ -21,3 +21,4 @@
 *.log
 *.ipynb
 *.pyc
+.Rproj.user
