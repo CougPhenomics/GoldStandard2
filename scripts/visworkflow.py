@@ -69,19 +69,41 @@ def main():
     imagename = os.path.splitext(fn)[0]
 
     # create mask
-    imgh = pcv.rgb2gray_hsv(img, 'h')
-    # maskh = pcv.threshold.binary(imgh, 12, 255, 'light')
-    # m2 = pcv.threshold.binary(imgh, 50, 255, 'dark')
-    _,newgray = pcv.threshold.custom_range(imgh, [12], [50]) #removes background
 
-    gblur = pcv.gaussian_blur(newgray, (3,3))
-    maskh = pcv.threshold.otsu(gblur, 255)
-    maskh = pcv.fill(maskh, 900)
-    mask = pcv.closing(maskh, np.ones((8,8)))
-    # imga = pcv.rgb2gray_lab(img, 'a')
-    # il = pcv.visualize.pseudocolor(imga,mask = maskh)
+    # taf=filters.try_all_threshold(s_img)
+    ## remove background
+    s_img = pcv.rgb2gray_hsv(img, 's')
+    min_s = filters.threshold_minimum(s_img)
+    thresh_s = pcv.threshold.binary(s_img, min_s, 255, 'light')
+    rm_bkgrd = pcv.fill_holes(thresh_s)
+
+    ## low greenness
+    thresh_s = pcv.threshold.binary(s_img, min_s+15, 255, 'dark')
+    # taf = filters.try_all_threshold(s_img)
+    c = pcv.logical_xor(rm_bkgrd, thresh_s)
+    cinv = pcv.invert(c)
+    cinv_f = pcv.fill(cinv,500)
+    cinv_f_c = pcv.closing(cinv_f, np.ones((5, 5)))
+    cinv_f_c_e = pcv.erode(cinv_f_c, 2,1)
+
+    ## high greenness
+    a_img = pcv.rgb2gray_lab(img, channel='a')
+    # taf = filters.try_all_threshold(a_img)
+    t_a = filters.threshold_yen(a_img)
+    thresh_a = pcv.threshold.binary(a_img, t_a, 255, 'dark')
+    thresh_a = pcv.closing(thresh_a, np.ones((5,5)))
+    thresh_a_f = pcv.fill(thresh_a,500)
+    ## combined mask
+    lor = pcv.logical_or(cinv_f_c_e, thresh_a_f)
+    close = pcv.closing(lor, np.ones((2,2)))
+    fill = pcv.fill(close,800)
+    erode = pcv.erode(fill,3,1)
+    fill2 = pcv.fill(erode,1200)
+    # dilate = pcv.dilate(fill2,2,2)
+    mask = fill2
 
     final_mask = np.zeros_like(mask)
+
 
     # Compute greenness
     # split color channels
@@ -103,7 +125,7 @@ def main():
 
     # find objects
     c,h = pcv.find_objects(img,mask)
-    rc, rh = pcv.roi.multi(img, coord = [(1250,900),(1250,2400)], radius = 450)
+    rc, rh = pcv.roi.multi(img, coord = [(1300,900),(1300,2400)], radius = 350)
     # Turn off debug temporarily, otherwise there will be a lot of plots
     pcv.params.debug = None
     # Loop over each region of interest

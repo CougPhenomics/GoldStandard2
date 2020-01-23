@@ -16,12 +16,13 @@ import warnings
 warnings.filterwarnings("ignore", module="matplotlib")
 warnings.filterwarnings("ignore", module='plotnine')
 
-plt.rcParams['figure.figsize'] = [15,15]
+plt.rcParams['figure.figsize'] = [12,12]
 
+os.chdir('..')
 
 class options():
     def __init__(self):
-        self.image = "data/vis/A6-GoldStandard2_RGB-20190726T161047-VIS0-0.png"
+        self.image = "data/vistest/A6-GoldStandard2_RGB-20190728T101106-VIS0-0.png"
         self.outdir = "output/vistest"
         self.result = "output/vistest/result.json"
         self.regex = "(.{2})-(.+)-(\d{8}T\d{6})-(.+)-(\d{1})"
@@ -34,14 +35,20 @@ args = options()
 
 def vismask(img):
 
+    s_img=pcv.rgb2gray_hsv(img, 's')
+    min_s = filters.threshold_minimum(s_img)
+    thresh_s = pcv.threshold.binary(s_img, min_s, 255, 'dark')
+
     a_img = pcv.rgb2gray_lab(img, channel='a')
     thresh_a = pcv.threshold.binary(a_img, 124, 255, 'dark')
-    b_img = pcv.rgb2gray_lab(img, channel='b')
-    thresh_b = pcv.threshold.binary(b_img, 127, 255, 'light')
 
-    mask = pcv.logical_and(thresh_a, thresh_b)
-    mask = pcv.fill(mask, 800)
-    final_mask = pcv.dilate(mask, 2, 1)
+    mask = pcv.logical_or(thresh_s, thresh_a)
+    close = pcv.closing(mask, np.ones((2,2)))
+    fill = pcv.fill(close,800)
+    dilate_s = pcv.dilate(fill,2,2)
+    erode_s = pcv.erode(dilate_s,2,3)
+
+    final_mask = erode_s
 
     return final_mask
 
