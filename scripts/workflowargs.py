@@ -33,25 +33,6 @@ class options():
 args = options()
 
 
-def vismask(img):
-
-    s_img=pcv.rgb2gray_hsv(img, 's')
-    min_s = filters.threshold_minimum(s_img)
-    thresh_s = pcv.threshold.binary(s_img, min_s, 255, 'dark')
-
-    a_img = pcv.rgb2gray_lab(img, channel='a')
-    thresh_a = pcv.threshold.binary(a_img, 124, 255, 'dark')
-
-    mask = pcv.logical_or(thresh_s, thresh_a)
-    close = pcv.closing(mask, np.ones((2,2)))
-    fill = pcv.fill(close,800)
-    dilate_s = pcv.dilate(fill,2,2)
-    erode_s = pcv.erode(dilate_s,2,3)
-
-    final_mask = erode_s
-
-    return final_mask
-
 
 def add_scalebar(pseudoimg, pixelresolution, barwidth, barlocation='lower center', fontprops=None, scalebar=None):
     if fontprops is None:

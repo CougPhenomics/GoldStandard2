@@ -89,7 +89,7 @@ def main():
     ## high greenness
     a_img = pcv.rgb2gray_lab(img, channel='a')
     # taf = filters.try_all_threshold(a_img)
-    t_a = filters.threshold_yen(a_img)
+    t_a = filters.threshold_isodata(a_img)
     thresh_a = pcv.threshold.binary(a_img, t_a, 255, 'dark')
     thresh_a = pcv.closing(thresh_a, np.ones((5,5)))
     thresh_a_f = pcv.fill(thresh_a,500)
