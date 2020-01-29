@@ -1,4 +1,4 @@
-sampleid,roi,gtype
+plantbarcode,roi,gtype
 A1,1,nhd1
 A1,0,kea
 A2,1,glk
@@ -6,7 +6,7 @@ A2,0,nhd1
 A3,0,npq4
 A3,1,nhd1
 A4,1,npq2
-A4,0,nd1
+A4,0,nhd1
 A5,1,npq2
 A5,0,kea
 A6,1,WT
