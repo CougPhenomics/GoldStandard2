@@ -12,7 +12,9 @@ from skimage import filters
 from skimage import morphology
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-
+import warnings
+warnings.filterwarnings("ignore", module="matplotlib")
+warnings.filterwarnings("ignore", module='plotnine')
 
 # Parse command-line arguments
 def options():
@@ -180,7 +182,7 @@ def main():
                 label='/1')
 
             # Analyze all colors
-            #             hist = pcv.analyze_color(img, plant_mask, 'all')
+            hist = pcv.analyze_color(img, plant_mask, 'all')
 
             # Analyze the shape of the current plant
             shape_img = pcv.analyze_object(img, plant_object, plant_mask)
@@ -213,9 +215,9 @@ def main():
             os.makedirs(imgdir, exist_ok=True)
             pcv.print_image(shape_img, os.path.join(imgdir, imagename + '-roi' + str(i) + '-shape.png'))
 
-#             imgdir = os.path.join(args.outdir, 'colorhist_images', plantbarcode)
-#             os.makedirs(imgdir, exist_ok=True)
-#             pcv.print_image(hist, os.path.join(imgdir, imagename + '_' + str(i) + '_colorhist.png'))
+            imgdir = os.path.join(args.outdir, 'colorhist_images', plantbarcode)
+            os.makedirs(imgdir, exist_ok=True)
+            pcv.print_image(hist, os.path.join(imgdir, imagename + '-roi' + str(i) + '-colorhist.png'))
 
 # end roi loop
 
