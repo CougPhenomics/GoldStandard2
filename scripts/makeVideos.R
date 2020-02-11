@@ -7,7 +7,7 @@
 
 # Get command line arguments
 args = commandArgs(trailingOnly = T)
-# args  = c('output/from_diy_data', 'diy_data/genotype_map.csv')
+# args  = c('output/psII', 'data/genotype_map.csv')
 
 # test if there are two arguments: if not, return an error
 if (length(args)<2) {
@@ -35,7 +35,7 @@ outdir = file.path(root, datadir, 'timelapse')
 dir.create(outdir, show = F, rec = T)
 
 # get genotype info
-gmap = read_csv(file.path(root,args[2]))
+gmap = read_csv(file.path(root,args[2])) %>% arrange(roi, plantbarcode)
 
 # get data processed
 output = read_csv(file.path(root, datadir,'output_psII_level0.csv'),
@@ -47,18 +47,18 @@ gmap = inner_join(gmap, output) %>% distinct(sampleid, roi, gtype) %>%
   mutate(treatment = 'control')
 
 # setup roi positions for genotype labels
-nrow = 3
-ncol = 3
+nrow = 2
+ncol = 1
 nroi = nrow*ncol
 rownum = floor((seq_len(nroi)-1) / nrow) + 1
 colnum = floor((seq_len(nroi)-1) / ncol + 1)
 x0 = 95
 xoffset = 170
-y0 = 45
-yoffset = 170
+y0 = 100
+yoffset = 260
 xpos = x0 + (rownum - 1) * xoffset
 ypos = y0 + (colnum - 1) * yoffset
-coords = crossing(xpos, ypos) %>% arrange(ypos) %>% mutate(roi = seq_len(nroi)-1) %>% inner_join(gmap)
+coords = crossing(xpos, ypos) %>% arrange(desc(ypos)) %>% mutate(roi = seq_len(nroi)-1) %>% inner_join(gmap)
 
 # function to create treatment label
 get_treatment <- function(traynum) {
@@ -85,7 +85,7 @@ if(length(fluc_ids)!=0){
 # test values
 # sampleid_c = 'A1'
 # sampleid_t = 'A2'
-# parameter_string = 'FvFm-YII'#'FvFm_YII' #'t300_ALon_YII'
+# parameter_string = 't320_ALon-NPQ'#'FvFm_YII' #
 # il = l[[1]]
 
 # define gif making function
@@ -151,7 +151,8 @@ arrange_gif = function(il, parameter_string) {
         }
         # print(gtype)
         
-        imgs0a <<-   image_annotate(
+        imgs0a <<- 
+          image_annotate(
           imgs0a,
           gtype,
           font = 'Arial',
@@ -180,7 +181,7 @@ arrange_gif = function(il, parameter_string) {
       }
     }
     # newgif
-    outfn = paste0(parameter_string, '-', sampleid_c ,'.gif')
+    outfn = paste0(parameter_string, '-', sampleid_c,'-',paste(g0, collapse='_'),'.gif')
     image_write_video(newgif, file.path(outdir, outfn), framerate = 2)
     # image_write_gif(newgif,file.path(outdir, outfn), delay=0.5)
     
@@ -290,7 +291,7 @@ arrange_gif = function(il, parameter_string) {
   }
 }
 
-param = 'FvFm-YII'
-for (param in c('FvFm-YII', 't300_ALon-YII', 't300_ALon-NPQ')) {
+param = 't320_ALon-NPQ'
+for (param in c('t320_ALon-YII')) {
   walk(l, arrange_gif, param)
 }
