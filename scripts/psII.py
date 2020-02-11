@@ -10,6 +10,8 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import warnings
 import importlib
+from tinydb import TinyDB, Query
+
 warnings.filterwarnings("ignore", module="matplotlib")
 warnings.filterwarnings("ignore", module='plotnine')
 
@@ -30,7 +32,7 @@ os.makedirs(outdir, exist_ok=True)
 os.makedirs(debugdir, exist_ok=True)
 os.makedirs(maskdir, exist_ok=True)
 os.makedirs(fluordir, exist_ok=True)
-
+heterodb = TinyDB('output/psII/psII_heterogeneity.json')
 # %% pixel pixel_resolution
 # mm (this is approx and should only be used for scalebar)
 pixelresolution = 0.2
@@ -42,7 +44,7 @@ fdf = fdf.query('jobdate > "2019-07-17"')#issues with psII camera before 7-17-20
 pimframes = pd.read_csv(os.path.join('data', 'pimframes_map.csv'),
                         skipinitialspace=True)
 # this eliminate weird whitespace around any of the character fields
-fdf_dark = (pd.merge(fdf.reset_index(), pimframes, on=['imageid'],
+fdf_dark = (pd.merge(fdf.reset_index(), pimframes, on=['frameid'],
                      how='right'))
 
 # %% remove absorptivity measurements which are blank images
@@ -51,7 +53,7 @@ df = (fdf_dark.query(
     '~parameter.str.contains("Abs") and ~parameter.str.contains("FRon")',
     engine='python'))
 
-# %% remove the duplicate Fm and Fo frames where frame = Fmp and Fp from imageid 5,6
+# %% remove the duplicate Fm and Fo frames where frame = Fmp and Fp from frameid 5,6
 df = (df.query(
     '(parameter!="FvFm") or (parameter=="FvFm" and (frame=="Fo" or frame=="Fm") )'
 ))
@@ -95,8 +97,8 @@ def image_avg(fundf):
     print(outfn)
 
     # Make some directories based on sample id to keep output organized
-    sampleid = outfn_split[0]
-    fmaxdir = os.path.join(fluordir, sampleid)
+    plantbarcode = outfn_split[0]
+    fmaxdir = os.path.join(fluordir, plantbarcode)
     os.makedirs(fmaxdir, exist_ok=True)
 
     # If debug mode is 'print', create a specific debug dir for each pim file
@@ -127,7 +129,7 @@ def image_avg(fundf):
             YII = mask
             NPQ = mask
             newmask = mask
-        else:    
+        else:
             # find objects and setup roi
             c, h = pcv.find_objects(img, mask)
 
@@ -159,7 +161,7 @@ def image_avg(fundf):
         if len(np.unique(newmask)) == 1:
             YII = np.zeros_like(newmask)
             NPQ = np.zeros_like(newmask)
-            
+
         else:
             # compute YII
             Fvp, hist_yii = pcv.fluor_fvfm(fdark,
@@ -185,16 +187,17 @@ def image_avg(fundf):
                             1,
                             out=out_flt.copy(),
                             where=np.logical_and(NPQ >= 1, newmask > 0))
-        
+
         cv2.imwrite(os.path.join(fmaxdir, outfn + '-yii.tif'), YII)
         cv2.imwrite(os.path.join(fmaxdir, outfn + '-npq.tif'), NPQ)
+
     # end if-else Fv/Fm
 
     # Make as many copies of incoming dataframe as there are ROIs so all results can be saved
     outdf = fundf.copy()
     for i in range(0, len(roi_c) - 1):
         outdf = outdf.append(fundf)
-    outdf.imageid = outdf.imageid.astype('uint8')
+    outdf.frameid = outdf.frameid.astype('uint8')
 
     # Initialize lists to store variables for each ROI and iterate through each plant
     frame_avg = []
@@ -206,9 +209,9 @@ def image_avg(fundf):
     ithroi = []
     inbounds = []
     if len(c) == 0:
-        
+
         for i, rc in enumerate(roi_c):
-        # each variable needs to be stored 2 x #roi
+            # each variable needs to be stored 2 x #roi
             frame_avg.append(np.nan)
             frame_avg.append(np.nan)
             yii_avg.append(np.nan)
@@ -222,15 +225,15 @@ def image_avg(fundf):
             inbounds.append(False)
             inbounds.append(False)
             plantarea.append(0)
-            plantarea.append(0)    
-        # Store iteration Number even if there are no objects in image
+            plantarea.append(0)
+            # Store iteration Number even if there are no objects in image
             ithroi.append(int(i))
             ithroi.append(int(i))  # append twice so each image has a value.
-        
+
     else:
         i = 1
         rc = roi_c[i]
-        
+
         for i, rc in enumerate(roi_c):
             # Store iteration Number
             ithroi.append(int(i))
@@ -297,13 +300,13 @@ def image_avg(fundf):
             # end try-except-else
         # end roi loop
     # end if there are objects from roi filter
-    
+
     # save mask of all plants to file after roi filter
     if param_name == 'FvFm':
         pcv.print_image(newmask, os.path.join(maskdir, outfn + '-mask.png'))
 
     # Output a pseudocolor of NPQ and YII for each induction period for each image
-    imgdir = os.path.join(outdir, 'pseudocolor_images', sampleid)
+    imgdir = os.path.join(outdir, 'pseudocolor_images', plantbarcode)
     os.makedirs(imgdir, exist_ok=True)
     npq_img = pcv.visualize.pseudocolor(NPQ,
                                         obj=None,
@@ -372,9 +375,112 @@ def image_avg(fundf):
 
 # end of function!
 
+
+# %% save histogram data
+def analyze_heterogeneity(img, mask, img_var, hist_bins = 128, hist_range=(0,1)):
+    '''
+    Function to analyze hetergeneity of plant.
+    Inputs:
+    img = grayscale image
+    mask = binary image
+    img_var = image name. used to store the data and label the histogram
+    hist_bins = number of bins for histogram, default is 128.
+    hist_range = range of the histogram given as a tuple, default is (0,1)
+    Returns:
+    hist = frequencies of histogram
+    hist_bins = bin midpoints for frequencies
+    hist_fig = histogram of data
+    :param img: numpy.ndarray
+    :param mask: numpy.ndarray
+    :param img_var: str
+    :param bins: int
+    :param range: tuple
+    :return hist: numpy.ndarray
+    :return hist_bins: numpy.ndarray
+    :return hist_fig: matplotlib figure
+    '''
+    import os
+    import cv2
+    import numpy as np
+    import pandas as pd
+    from plotnine import ggplot, geom_label, aes, geom_line
+    from plantcv.plantcv import print_image
+    from plantcv.plantcv import plot_image
+    from plantcv.plantcv import fatal_error
+    from plantcv.plantcv import params
+    from plantcv.plantcv import outputs
+
+    # Auto-increment the device counter
+    params.device += 1
+    # Check that img is grayscale and mask is binary
+    if not all(len(np.shape(img)) == 2 for i in [img, mask]):
+        fatal_error(
+            "The image and mask must be grayscale images.")
+    if not np.unique(mask)==2:
+        fatal_error(
+            "The mask should be binary.")
+
+    hist, hist_bins = np.histogram(img[np.where(mask > 0)], hist_bins, range=hist_range)
+    # hist_bins is a bins + 1 length list of bin endpoints, so we need to calculate bin midpoints so that
+    # the we have a one-to-one list of x (FvFm) and y (frequency) values.
+    # To do this we add half the bin width to each lower bin edge x-value
+    midpoints = hist_bins[:-1] + 0.5 * np.diff(hist_bins)
+    # Create Histogram Plot, if you change the bin number you might need to change binx so that it prints
+    # an appropriate number of labels
+    # Create a dataframe
+    dataset = pd.DataFrame({'Plant Pixels': hist, 'Bins': midpoints})
+    # Make the histogram figure using plotnine
+    hist_fig = (
+        ggplot(data=dataset, mapping=aes(x='Bins', y='Plant Pixels')) +
+        geom_line(color='black', show_legend=True) +
+        geom_label(label='Peak Bin Value: ' + str(max_bin),
+                x=.15,
+                y=205,
+                size=8,
+                color='black') +
+        ggtitle(img_var))
+
+    if params.debug == 'print':
+        hist_fig.save(os.path.join(params.debug_outdir, str(params.device) + 'analyze_hetero_hist.png'))
+    elif params.debug == 'plot':
+        print(fvfm_hist_fig)
+
+    outputs.add_observation(variable=img_var + '_frequencies',
+                            trait=img_var + ' frequencies',
+                            method='plantcv.plantcv.analyze_heterogeneity',
+                            scale='none',
+                            datatype=list,
+                            value=hist.tolist(),
+                            label=np.around(midpoints,
+                                            decimals=len(
+                                                str(hist_bins))).tolist())
+    outputs.add_observation(variable=img_var + '_hist_peak',
+                            trait='peak ' + img_var + ' value',
+                            method='plantcv.plantcv.analyze_heterogeneity',
+                            scale='none',
+                            datatype=float,
+                            value=float(max_bin),
+                            label='none')
+    outputs.add_observation(variable=img_var + '_median',
+                            trait=img_var + ' median',
+                            method='plantcv.plantcv.analyze_heterogeneity',
+                            scale='none',
+                            datatype=float,
+                            value=float(np.around(np.median(hist), decimals=4)),
+                            label='none')
+    outputs.add_observation(variable=img_var + '_stdev',
+                            trait=img_var + ' standard deviation',
+                            method='plantcv.plantcv.analyze_hetergeneity',
+                            scale='none',
+                            datatype=float,
+                            value=float(np.around(np.std(hist), decimals=4)),
+                            label='none')
+
+    return hist, hist_bins, hist_fig
+
 # %% Setup Debug parameters
 #by default params.debug should be 'None' when you are ready to process all your images
-pcv.params.debug = 'print'
+pcv.params.debug = None
 # if you choose to print debug files to disk then remove the old ones first (if they exist)
 if pcv.params.debug == 'print':
     import shutil
@@ -382,9 +488,9 @@ if pcv.params.debug == 'print':
 
 # %% Testing dataframe
 # # If you need to test new function or threshold values you can subset your dataframe to analyze some images
-# df2 = df.query('((sampleid == "A6" or sampleid == "A3") and (jobdate == "2019-07-18" or jobdate == "2019-07-18"))')# | (sampleid == "B7" & jobdate == "2019-11-20")')
+# df2 = df.query('((plantbarcode == "A6" or plantbarcode == "A3" or plantbarcode == "B3") and (parameter == "FvFm" or parameter == "t320_ALon" or parameter == "t300_ALon") and (jobdate == "2019-07-18" or jobdate == "2019-07-22"))')# | (plantbarcode == "B7" & jobdate == "2019-11-20")')
 # # del df2
-# fundf = df2.query('(sampleid == "A6" and parameter=="t40_ALon" and jobdate == "2019-07-18")')
+# fundf = df2.query('(plantbarcode == "A6" and parameter=="t40_ALon" and jobdate == "2019-07-18")')
 # del fundf
 # # # fundf
 # # end testing
@@ -397,24 +503,39 @@ else:
     print('df2 already exists!')
 
 # removing this image because it causes python to crash with "Floating point exception (core dumped)"
-df2 = df2.query('not (sampleid=="A6" and jobdate == "2019-07-18" and parameter=="t40_ALon")')
+df2 = df2.query('not (plantbarcode=="A6" and jobdate == "2019-07-18" and parameter=="t40_ALon")')
 
-# Each unique combination of treatment, sampleid, jobdate, parameter should result in exactly 2 rows in the dataframe that correspond to Fo/Fm or F'/Fm'
-dfgrps = df2.groupby(['experiment', 'sampleid', 'jobdate', 'parameter'])
+# # initialize db
+# heterodb.insert({'plantbarcode': df2.plantbarcode.})
+# heterodb.insert_multiple([{'plantbarcode': df2.plantbarcode.array}])
+# heterodb.get('plantbarcode')
+# heterodb.all()
+# Each unique combination of treatment, plantbarcode, jobdate, parameter should result in exactly 2 rows in the dataframe that correspond to Fo/Fm or F'/Fm'
+dfgrps = df2.groupby(['experiment', 'plantbarcode', 'jobdate', 'parameter'])
 grplist = []
 for grp, grpdf in dfgrps:
     # print(grp)#'%s ---' % (grp))
     grplist.append(image_avg(grpdf))
 df_avg = pd.concat(grplist)
 
+df_avg.to_csv('output/psII/df_avg.csv',na_rep='nan', float_format='%.4f', index=False)
+
 # %% Add genotype information
 gtypeinfo = pd.read_csv(os.path.join('data', 'genotype_map.csv'),
                         skipinitialspace=True)
-df_avg2 = (pd.merge(df_avg, gtypeinfo, on=['sampleid', 'roi'], how='inner'))
+df_avg2 = (pd.merge(df_avg, gtypeinfo, on=['plantbarcode', 'roi'], how='inner'))
+# df_avg2.to_csv('wrongoutput2.csv')
+# df_avg2 = (pd.merge(df_avg,
+#                     gtypeinfo,
+#                     left_on=['plantbarcode', 'roi'],
+#                     right_on=['plantbarcode', 'roi'],
+#                     how='inner'))
+# df_avg2.to_csv('correctoutput.csv')
+
 
 # %% Write the tabular results to file!
 # df_avg2.jobdate = df_avg2.jobdate.dt.strftime('%Y-%m-%d')
-(df_avg2.sort_values(['jobdate', 'sampleid', 'imageid']).drop(
+(df_avg2.sort_values(['jobdate', 'plantbarcode', 'frameid']).drop(
     ['filename'], axis=1).to_csv(os.path.join(outdir,
                                               'output_psII_level0.csv'),
                                  na_rep='nan',

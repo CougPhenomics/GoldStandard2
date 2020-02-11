@@ -30,8 +30,8 @@ def import_snapshots(snapshotdir, camera='vis'):
 
     fdf = pd.DataFrame(flist,
                        columns=[
-                           'sampleid', 'experiment', 'timestamp',
-                           'cameralabel', 'imageid', 'filename'
+                           'plantbarcode', 'experiment', 'timestamp',
+                           'cameralabel', 'frameid', 'filename'
                        ])
 
     # convert date and time columns to datetime format
@@ -45,15 +45,15 @@ def import_snapshots(snapshotdir, camera='vis'):
                                      'jobdate'] + timedelta(days=1)
 
         # convert image id from string to integer that can be sorted numerically
-        fdf['imageid'] = fdf.imageid.astype('uint8')
-        fdf = fdf.sort_values(['sampleid', 'datetime', 'imageid'])
+        fdf['frameid'] = fdf.frameid.astype('uint8')
+        fdf = fdf.sort_values(['plantbarcode', 'datetime', 'frameid'])
 
-    fdf = fdf.set_index(['sampleid', 'experiment', 'datetime',
+    fdf = fdf.set_index(['plantbarcode', 'experiment', 'datetime',
                          'jobdate']).drop(columns=['timestamp'])
 
     # check for duplicate jobs of the same sample on the same day.  if jobs_removed.csv isnt blank then you shyould investigate!
-    #dups = fdf.reset_index('datetime',drop=False).set_index(['imageid'],append=True).index.duplicated(keep='first')
-    #dups_to_remove = fdf[dups].drop(columns=['imageid','filename']).reset_index().drop_duplicates()
+    #dups = fdf.reset_index('datetime',drop=False).set_index(['frameid'],append=True).index.duplicated(keep='first')
+    #dups_to_remove = fdf[dups].drop(columns=['frameid','filename']).reset_index().drop_duplicates()
     #dups_to_remove.to_csv('jobs_removed.csv',sep='\t')
     #
 
