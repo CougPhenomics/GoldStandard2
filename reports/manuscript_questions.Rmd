@@ -1,0 +1,285 @@
+---
+title: "Analysis Questions"
+author: Dominik Schneider
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: 
+   bookdown::html_document2:
+    df_print: paged
+    fig_height: 6
+    fig_width: 8
+    output_dir: reports
+    toc: TRUE
+    toc_float: TRUE
+    toc_depth: 4
+    code_download: true
+---
+
+```{r setup, include = F}
+library(tidyverse)
+library(vroom)
+library(here)
+library(knitr)
+require(xtable)
+require(lubridate)
+walk(dir('src/R','.R$', full.names = T),source)
+
+knitr::opts_chunk$set(echo=F, results=F, fig.width = 10, warning=F, message=F)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+```
+
+# Analysis {.tabset .tabset-fade}
+
+## VIS
+- confirm greenness difference by genotype? (use 1 timepoint only)
+
+- greenness difference based on time of day of image? (7/23 - 7/26)
+
+- do we detect plant area diurnal cycle using the 3 times of day (7/23-7/26)
+
+- can we quantify color heterogeneity based on histogram skew/kurtosis? (1 timepoint)
+
+
+```{r}
+data = vroom(here::here('output','vis','vis.csv-single-value-traits.csv')) 
+gtypes = read_csv('data/genotype_map.csv')
+
+singledata = full_join(data,gtypes, by = c('plantbarcode','roi')) %>% 
+  mutate(imagetime = case_when(hour(timestamp) < 6 ~ 'early',
+                               hour(timestamp) < 12 ~ 'morning',
+                               hour(timestamp) < 18 ~ 'afternoon'),
+         imagetime = factor(imagetime, levels = c('early', 'morning', 'afternoon')),
+         dte = as.Date(timestamp))
+```
+
+```{r gtypecolorpal}
+# sort gtypes so WT is at the start. Easier to assign "black"
+singledata$gtype = forcats::fct_relevel(singledata$gtype,'WT',after=0)
+gtypeLevels = levels(singledata$gtype)
+
+# setup gtype color palette
+n_gtypes = length(gtypeLevels)
+
+gtypecolorpal = c('black',RColorBrewer::brewer.pal(9,'Set1')[1:(n_gtypes-1)])
+names(gtypecolorpal) <- gtypeLevels #assign names to colors that match the gtype levels so filtered dataset still uses the same colors for each gtype
+
+```
+
+### Greenness
+```{r}
+gi = singledata %>% 
+  select(timestamp,dte, imagetime, gtype, roi, greenness_index, plantbarcode)
+```
+
+```{r, eval=F}
+ggplot(gi)+
+  geom_line(aes(timestamp, y=greenness_index, group=interaction(plantbarcode,roi), color = plantbarcode))+facet_wrap(~gtype)+
+  scale_x_datetime(limits = c(ymd('2019-07-26', tz='UTC'), ymd('2019-07-31', tz='UTC')))
+```
+
+Here is the median greenness value across all reps separated by date and time of day. There are different number of bioreps depending on the date.
+
+The red bars seem higher in most of the days suggesting higher greenness index in the early hours. Green bars are sometimes the lowest, esp nhd1. Morning has lower greenness index?
+
+```{r, fig.width = 10}
+gi %>% 
+  group_by(gtype,imagetime, dte) %>% 
+  summarise(med = median(greenness_index,na.rm=T)) %>% 
+  ggplot()+
+  geom_col(aes(x=dte,y=med,fill=imagetime), position = position_dodge2(width=.9, preserve = "single"))+
+  scale_fill_discrete()+
+  scale_x_date(date_breaks = '1 day')+
+  theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
+  facet_wrap(~gtype)
+```
+
+Here is a closer look of the trend for each of the timeperiods. Median for each genotype +/- std error.
+
+
+```{r, fig.height=10}
+gi %>% 
+  group_by(gtype,imagetime, dte) %>% 
+  summarise(med = median(greenness_index,na.rm=T),
+            sd = sd(greenness_index,na.rm=T),
+            hi = med + sd/sqrt(n()),
+            lo = med - sd/sqrt(n())) %>%
+  ggplot()+
+  geom_ribbon(aes(x=dte, ymin = lo, ymax=hi, group=gtype), fill='grey20', alpha=0.5)+
+  geom_line(aes(dte,med, color=gtype))+
+  facet_wrap(~imagetime, nrow=3)+
+  scale_color_manual(values = gtypecolorpal)
+
+```
+
+#### Conclusion 1
+
+Not a large difference between genotypes. Some separationg between WT/nhd1 and the rest after 7/28 
+
+#### Conclusion 2
+
+There is some evidence that the early snapshot (~4am) yielded a higher greenness index and morning timeperiod yielded the lowest greenness index. However it's subtle and may not hold with a statistical test.
+
+### Plant Area
+
+```{r}
+pa = singledata %>% 
+  select(timestamp,dte, imagetime, gtype, roi, plantarea, plantbarcode)
+```
+
+```{r, eval=F}
+ggplot(pa)+
+  geom_line(aes(timestamp, y=plantarea, group=interaction(plantbarcode,roi), color = plantbarcode))+
+  facet_wrap(~gtype)+
+  scale_x_datetime(limits = c(ymd('2019-07-26', tz='UTC'), ymd('2019-07-31', tz='UTC')))+
+  coord_cartesian(ylim = c(0,2000))
+```
+
+We can look at the plant area for each plant for each timestamp to evaluate a diurnal cycle.
+
+```{r}
+pa %>% 
+  ggplot()+
+  geom_point(aes(timestamp,plantarea), size=1)+
+  geom_line(aes(timestamp,plantarea,color=plantbarcode))+
+  scale_x_datetime(limits = as.POSIXct(c('2019-07-23','2019-07-30')))+
+  facet_wrap(~gtype)+
+   theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
+  scale_y_continuous(limits=c(0,10000),expand=c(0,0))
+```
+
+A cleaner plot with median plantarea by genotype on each day separated by imaging period more clearly shows a bias based on time of day.
+
+```{r}
+pa %>% 
+  group_by(gtype, imagetime, dte) %>% 
+  summarise(med = median(plantarea,na.rm=T)) %>% 
+  ggplot()+
+  geom_line(aes(x=dte,y=med, color=imagetime))+
+  facet_wrap(~gtype)+
+  scale_x_date(date_breaks = '1 day', limits = as.Date(c('2019-07-23','2019-07-30')))+
+  theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
+  scale_y_continuous(limits = c(200,800), expand=c(0,0))
+```
+
+#### Conclusion 1
+
+Imaging time of day affects the plant area - which was expected due to vertical leaf movements. For the most part it appears the afternoon exhibits the largest leaf area and the early hours the smallest. **kea** is the major exception to this. This would correspond to large leaf angle in the night and small leaf angle in the day.
+
+
+## PSII
+
+- confirm steadstate NPQ and YII difference by genotype
+
+- can we quantify NPQ heterogeneity based on histogram skew/kurtosis? (1 timepoint)
+
+```{r}
+data = vroom(here::here('output','psII','output_psII_level1.csv')) 
+frames = read_csv(here::here('data','pimframes_map.csv')) %>% filter(frameid > 6) %>% distinct(parameter)
+
+fvfm = data %>% filter(parameter == 'FvFm')
+IndC = data %>% filter(parameter != 'FvFm') %>% 
+  mutate(parameter = factor(parameter, levels = frames$parameter))
+
+```
+
+First look at how NPQ changes over the course of the experiment. The first thing I notice is the first 3 induction periods exhibit the largest changes in NPQ but after ~100 sec NPQ is relatively steady across the entire experiment. This is expressed quite clearly for WT, kea, npq4. glk and npq2 show a more gradual increase in NPQ. ndh1 is somewhere in between. Most striking about nhd1 is that NPQ for the last induction period is often lower than the middle induciton periods. *Is this a limitation of the camera - too small of a difference?* *Was there an environment change on the 23 (22nd is missing)?* However, in the post processing report, the spread of YII is about the same on every day, before and after July 22.
+
+
+```{r}
+
+IndC %>% 
+  # filter(parameter == 't320_ALon' | parameter == 't300_ALon' | parameter == 't280_ALon') %>%
+  group_by(parameter,jobdate, gtype) %>% 
+  summarize(med=median(npq_avg,na.rm=T)) %>% 
+  ggplot()+
+  geom_line(aes(x=jobdate, y=med, color = parameter))+
+  facet_wrap(~gtype)+
+  scale_x_date(date_breaks = '2 day')+
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))
+
+
+```
+
+YII should show the opposite trend I think....
+
+```{r}
+IndC %>% 
+  # filter(parameter == 't320_ALon' | parameter == 't300_ALon' | parameter == 't280_ALon') %>%
+  group_by(parameter,jobdate, gtype) %>% 
+  summarize(med=median(yii_avg,na.rm=T)) %>% 
+  ggplot()+
+  geom_line(aes(x=jobdate, y=med, color = parameter))+
+  facet_wrap(~gtype)+
+  scale_x_date(date_breaks = '2 day')+
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))
+```
+
+I'm confused by YII goes up during the Induction curve.  Median induction curve response for all reps confirms that YII generally went up during the curve.
+
+```{r, fig.height=16}
+
+IndC %>% 
+  group_by(gtype,jobdate,parameter) %>% 
+  summarise(med = median(yii_avg,na.rm=T),
+            sd  = sd(yii_avg,na.rm=T),
+            hi = med+sd/sqrt(n()),
+            lo = med-sd/sqrt(n())) %>% 
+  mutate(tInd = parse_number(as.character(parameter))) %>% 
+  ggplot()+
+  geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi), fill = 'grey80')+
+  geom_line(aes(x=tInd, y = med))+
+  facet_grid(jobdate~gtype)+
+    labs(title = "median YII across all reps with se")
+
+
+```
+
+NPQ response to induction curves look as expected with a quick increase and plateau. 
+```{r, fig.height=16}
+
+IndC %>% 
+  group_by(gtype,jobdate,parameter) %>% 
+  summarise(med = median(npq_avg,na.rm=T),
+            sd  = sd(npq_avg,na.rm=T),
+            hi = med+sd/sqrt(n()),
+            lo = med-sd/sqrt(n())) %>% 
+  mutate(tInd = parse_number(as.character(parameter))) %>%
+  ungroup() %>% 
+  tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) %>% #use fill to prevent NA facet
+  ggplot()+
+  geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi), fill = 'grey80')+
+  geom_line(aes(x=tInd, y = med))+
+  facet_grid(jobdate~gtype)+
+    labs(title = "median NPQ across all reps with se")
+
+
+
+```
+
+The post processing showed that the most reps were imaged betwee 7/23 and 7/30 (~14 reps) before being reduced to ~5 reps (exception WT). I think this is when we swapped in the first round of amiRNA plants in part of the hotel.
+
+Overall this next plot shows that the steadystate NPQ exhibited by the plants fall into 2 groups: nhd1, npq2, and WT have lower NPQ (<~1.5) while kea, npq4, and glk cluster higher (>~1.5). npq2 in particular also has a more shallow rise in NPQ during the induction curve. kea usually has the steepest rise.
+
+```{r, fig.height=24}
+
+IndC %>% 
+  group_by(gtype,jobdate,parameter) %>% 
+  summarise(med = median(npq_avg,na.rm=T),
+            sd  = sd(npq_avg,na.rm=T),
+            hi = med+sd/sqrt(n()),
+            lo = med-sd/sqrt(n())) %>% 
+  mutate(tInd = parse_number(as.character(parameter))) %>%
+  ungroup() %>% 
+  tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) %>% #use fill to prevent NA facet
+  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-30') %>% 
+  ggplot()+
+  geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi, group=gtype), fill = 'grey80')+
+  geom_line(aes(x=tInd, y = med, color=gtype))+
+  facet_grid(jobdate~.)+
+  scale_color_manual(values = gtypecolorpal)+
+  labs(title = "median NPQ across all reps with se")
+
+```
+
+
