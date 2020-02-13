@@ -233,7 +233,6 @@ def image_avg(fundf):
     else:
         i = 1
         rc = roi_c[i]
-
         for i, rc in enumerate(roi_c):
             # Store iteration Number
             ithroi.append(int(i))
@@ -488,9 +487,9 @@ if pcv.params.debug == 'print':
 
 # %% Testing dataframe
 # # If you need to test new function or threshold values you can subset your dataframe to analyze some images
-# df2 = df.query('((plantbarcode == "A6" or plantbarcode == "A3" or plantbarcode == "B3") and (parameter == "FvFm" or parameter == "t320_ALon" or parameter == "t300_ALon") and (jobdate == "2019-07-18" or jobdate == "2019-07-22"))')# | (plantbarcode == "B7" & jobdate == "2019-11-20")')
+# df2 = df.query('((plantbarcode == "A7") and (parameter == "FvFm" or parameter == "t320_ALon" or parameter == "t80_ALon") and (jobdate == "2019-07-18"))')# | (plantbarcode == "B7" & jobdate == "2019-11-20")')
 # # del df2
-# fundf = df2.query('(plantbarcode == "A6" and parameter=="t40_ALon" and jobdate == "2019-07-18")')
+# fundf = df2.query('(plantbarcode == "A7" and parameter=="t80_ALon" and jobdate == "2019-07-18")')
 # del fundf
 # # # fundf
 # # end testing
@@ -518,19 +517,13 @@ for grp, grpdf in dfgrps:
     grplist.append(image_avg(grpdf))
 df_avg = pd.concat(grplist)
 
-df_avg.to_csv('output/psII/df_avg.csv',na_rep='nan', float_format='%.4f', index=False)
+# df_avg.to_csv('output/psII/df_avg.csv',na_rep='nan', float_format='%.4f', index=False)
 
 # %% Add genotype information
 gtypeinfo = pd.read_csv(os.path.join('data', 'genotype_map.csv'),
                         skipinitialspace=True)
 df_avg2 = (pd.merge(df_avg, gtypeinfo, on=['plantbarcode', 'roi'], how='inner'))
-# df_avg2.to_csv('wrongoutput2.csv')
-# df_avg2 = (pd.merge(df_avg,
-#                     gtypeinfo,
-#                     left_on=['plantbarcode', 'roi'],
-#                     right_on=['plantbarcode', 'roi'],
-#                     how='inner'))
-# df_avg2.to_csv('correctoutput.csv')
+
 
 
 # %% Write the tabular results to file!

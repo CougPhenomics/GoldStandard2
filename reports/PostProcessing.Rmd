@@ -143,7 +143,7 @@ output = read_csv(here::here('output','vis','vis.csv-single-value-traits.csv'),
 
 gmap = read_csv('data/genotype_map.csv')
 
-output <- full_join(output,gmap, by = c('plantbarcode' = 'plantbarcode', 'roi')) 
+output <- full_join(output,gmap, by = c('plantbarcode', 'roi')) 
 
 ```
 
@@ -483,8 +483,7 @@ n_param = 16 #there are n photosynthetic parameters -->
 output = read_csv('output/psII/output_psII_level0.csv',
                   na = 'nan') %>%
   mutate(jobdate = as.Date(jobdate),
-         parameter = forcats::as_factor(parameter)) %>% 
-  rename(plantbarcode = sampleid)
+         parameter = forcats::as_factor(parameter)) 
 ```
 
 ```{r}
@@ -540,10 +539,10 @@ We expect `r n_gtyperesults` datapoints per day per genotype.
 
 ```{r, fig.width=12}
 output2 %>%
-  select(jobdate, gtype, parameter, yii_avg) %>%
+  select(jobdate, gtype, parameter, npq_avg) %>%
   distinct() %>%
   group_by(jobdate,gtype) %>%
-  summarise(n_notna = sum(!is.na(yii_avg))) %>%
+  summarise(n_notna = sum(!is.na(npq_avg))) %>%
   ggplot()+
   geom_col(aes(x=jobdate,y=n_notna), position='dodge')+
   geom_text(aes(x=jobdate, y=n_notna, label=n_notna),vjust=-.5, size=3, color='#660066')+
@@ -566,6 +565,25 @@ output2 %>%
   ggplot()+
   geom_violin(aes(x=jobdate, y=yii_avg, group=jobdate), draw_quantiles = 0.5, position='dodge')+
   geom_jitter(aes(x=jobdate, y=yii_avg, group=jobdate), alpha=0.25, fill='black', shape=21)+
+  facet_grid(parameter~gtype, scales='free_y')+
+  scale_fill_manual(values=gtypecolorpal)+
+  scale_x_date(date_breaks = '1 day')+
+  # scale_y_continuous(limits = c(0,1))+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  labs(title = 'Distribution and density of the extracted phenotype.',
+       subtitle = 'A tight cluster of points and a fat violin shows consistent replication. A long tail suggests an outlier. The horizontal bar is the median.')
+
+```
+
+```{r,  fig.height=12, fig.width=16, warning=F}
+output2 %>%
+  select(jobdate, gtype, parameter, npq_avg) %>%
+  filter(parameter %in% c("t80_ALon", "t320_ALon")) %>% 
+  distinct() %>%
+  ggplot()+
+  geom_violin(aes(x=jobdate, y=npq_avg, group=jobdate), draw_quantiles = 0.5, position='dodge')+
+  geom_jitter(aes(x=jobdate, y=npq_avg, group=jobdate), alpha=0.25, fill='black', shape=21)+
   facet_grid(parameter~gtype, scales='free_y')+
   scale_fill_manual(values=gtypecolorpal)+
   scale_x_date(date_breaks = '1 day')+

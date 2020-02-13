@@ -72,15 +72,19 @@ gi = singledata %>%
   select(timestamp,dte, imagetime, gtype, roi, greenness_index, plantbarcode)
 ```
 
+Here is the timeseries of greenness for every plant. There is a reasonable amount of spread within each genotype and there seems to be large natural variation.
+
 ```{r, eval=F}
 ggplot(gi)+
   geom_line(aes(timestamp, y=greenness_index, group=interaction(plantbarcode,roi), color = plantbarcode))+facet_wrap(~gtype)+
-  scale_x_datetime(limits = c(ymd('2019-07-26', tz='UTC'), ymd('2019-07-31', tz='UTC')))
+  scale_x_datetime(limits = c(ymd('2019-07-23', tz='UTC'), ymd('2019-07-26', tz='UTC')))
 ```
+
+
 
 Here is the median greenness value across all reps separated by date and time of day. There are different number of bioreps depending on the date.
 
-The red bars seem higher in most of the days suggesting higher greenness index in the early hours. Green bars are sometimes the lowest, esp nhd1. Morning has lower greenness index?
+The red bars stand out as higher for npq2 suggesting higher greenness index in the early hours. Otherwise the green and blue bars are about even.
 
 ```{r, fig.width = 10}
 gi %>% 
@@ -89,12 +93,13 @@ gi %>%
   ggplot()+
   geom_col(aes(x=dte,y=med,fill=imagetime), position = position_dodge2(width=.9, preserve = "single"))+
   scale_fill_discrete()+
-  scale_x_date(date_breaks = '1 day')+
   theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
-  facet_wrap(~gtype)
+  facet_wrap(~gtype)+
+  scale_x_date(date_breaks = '1 day')+
+  coord_cartesian(xlim = as.Date(c("2019-07-23","2019-07-29")))
 ```
 
-Here is a closer look of the trend for each of the timeperiods. Median for each genotype +/- std error.
+Here is a closer look of the trend for each of the timeperiods. Median for each genotype +/- std error. My main observation is that the relative greenness across genotypes is similar at all time points of the day.
 
 
 ```{r, fig.height=10}
@@ -108,17 +113,19 @@ gi %>%
   geom_ribbon(aes(x=dte, ymin = lo, ymax=hi, group=gtype), fill='grey20', alpha=0.5)+
   geom_line(aes(dte,med, color=gtype))+
   facet_wrap(~imagetime, nrow=3)+
-  scale_color_manual(values = gtypecolorpal)
+  scale_color_manual(values = gtypecolorpal)+
+    coord_cartesian(xlim = as.Date(c("2019-07-23","2019-07-29")))
+
 
 ```
 
 #### Conclusion 1
 
-Not a large difference between genotypes. Some separationg between WT/nhd1 and the rest after 7/28 
+Not a large difference between genotypes. Some separation between after 7/28 
 
 #### Conclusion 2
 
-There is some evidence that the early snapshot (~4am) yielded a higher greenness index and morning timeperiod yielded the lowest greenness index. However it's subtle and may not hold with a statistical test.
+There is some evidence that the early snapshot (~4am) yielded a higher greenness index for npq2 but otherwise the difference is subtle for other genotypes.
 
 ### Plant Area
 
@@ -126,13 +133,14 @@ There is some evidence that the early snapshot (~4am) yielded a higher greenness
 pa = singledata %>% 
   select(timestamp,dte, imagetime, gtype, roi, plantarea, plantbarcode)
 ```
-
+PLant area for each plant.There are some large outliers in nhd1 and npq2. I should investigate the mask for these images. 
+ 
 ```{r, eval=F}
 ggplot(pa)+
   geom_line(aes(timestamp, y=plantarea, group=interaction(plantbarcode,roi), color = plantbarcode))+
   facet_wrap(~gtype)+
-  scale_x_datetime(limits = c(ymd('2019-07-26', tz='UTC'), ymd('2019-07-31', tz='UTC')))+
-  coord_cartesian(ylim = c(0,2000))
+  scale_x_datetime(limits = c(ymd('2019-07-26', tz='UTC'), ymd('2019-07-29', tz='UTC')))+
+  coord_cartesian(ylim = c(0,2500))
 ```
 
 We can look at the plant area for each plant for each timestamp to evaluate a diurnal cycle.
@@ -145,10 +153,13 @@ pa %>%
   scale_x_datetime(limits = as.POSIXct(c('2019-07-23','2019-07-30')))+
   facet_wrap(~gtype)+
    theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
-  scale_y_continuous(limits=c(0,10000),expand=c(0,0))
+  scale_y_continuous(limits=c(0,2500),expand=c(0,0))
 ```
 
-A cleaner plot with median plantarea by genotype on each day separated by imaging period more clearly shows a bias based on time of day.
+Only npq2 has a noticable diurnal size cycle.
+
+
+A cleaner plot with median plantarea by genotype on each day separated by imaging period more clearly shows a bias based on time of day. Only npq2 shows a strong difference below. 
 
 ```{r}
 pa %>% 
@@ -156,15 +167,16 @@ pa %>%
   summarise(med = median(plantarea,na.rm=T)) %>% 
   ggplot()+
   geom_line(aes(x=dte,y=med, color=imagetime))+
-  facet_wrap(~gtype)+
-  scale_x_date(date_breaks = '1 day', limits = as.Date(c('2019-07-23','2019-07-30')))+
+  facet_wrap(~gtype, scales='free')+
+  scale_x_date(date_breaks = '1 day', limits = as.Date(c('2019-07-23','2019-07-29')))+
   theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1))+
-  scale_y_continuous(limits = c(200,800), expand=c(0,0))
+  scale_y_continuous( expand=c(0,0))
+  # coord_cartesian(ylim = c(200,1000))
 ```
 
 #### Conclusion 1
 
-Imaging time of day affects the plant area - which was expected due to vertical leaf movements. For the most part it appears the afternoon exhibits the largest leaf area and the early hours the smallest. **kea** is the major exception to this. This would correspond to large leaf angle in the night and small leaf angle in the day.
+Imaging time of day affects the plant area only subtley and the signal is not large enough to confidently detect vertical leaf movements. *npq2* has a noticeable increase in size in the early hours but otherwise the difference is lost.
 
 
 ## PSII
@@ -183,7 +195,10 @@ IndC = data %>% filter(parameter != 'FvFm') %>%
 
 ```
 
-First look at how NPQ changes over the course of the experiment. The first thing I notice is the first 3 induction periods exhibit the largest changes in NPQ but after ~100 sec NPQ is relatively steady across the entire experiment. This is expressed quite clearly for WT, kea, npq4. glk and npq2 show a more gradual increase in NPQ. ndh1 is somewhere in between. Most striking about nhd1 is that NPQ for the last induction period is often lower than the middle induciton periods. *Is this a limitation of the camera - too small of a difference?* *Was there an environment change on the 23 (22nd is missing)?* However, in the post processing report, the spread of YII is about the same on every day, before and after July 22.
+The post processing showed that the most reps were imaged betwee 7/23 and 7/29 (~14 reps) before being reduced to ~5 reps (exception WT). I think this is when we swapped in the first round of amiRNA plants in part of the hotel.
+
+
+First look at how NPQ changes over the course of the experiment. The first thing I notice is the first 3 induction periods exhibit the largest changes in NPQ but after ~80 sec NPQ is relatively steady across the entire experiment. This is expressed quite clearly for WT, kea, nhd1 and glk. npq4 has a very small  rise in npq. npq2 show a very rapid rise in NPQ. There is a noticeable up and down in npq for WT, kea, nhd1, glk but only for steady state (pink, blue lines). In fact the rising npq has a small opposite effect - when ss npq bumped up, the rising npq bumped down. *Was there an environment change on the 25th or 27th?* 
 
 
 ```{r}
@@ -196,12 +211,13 @@ IndC %>%
   geom_line(aes(x=jobdate, y=med, color = parameter))+
   facet_wrap(~gtype)+
   scale_x_date(date_breaks = '2 day')+
-  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))+
+  scale_x_date(limits=as.Date(c("2019-07-23","2019-07-29")))
 
 
 ```
 
-YII should show the opposite trend I think....
+YII increases more steadily throuhg the induction curve. There is a complementary dip in YII on the 25th and 27th relative to NPQ.
 
 ```{r}
 IndC %>% 
@@ -212,14 +228,17 @@ IndC %>%
   geom_line(aes(x=jobdate, y=med, color = parameter))+
   facet_wrap(~gtype)+
   scale_x_date(date_breaks = '2 day')+
-  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1))+
+    scale_x_date(limits=as.Date(c("2019-07-23","2019-07-29")))
+
 ```
 
-I'm confused by YII goes up during the Induction curve.  Median induction curve response for all reps confirms that YII generally went up during the curve.
+Below we have the genotype median YII for the induction curves each day. The hook at the beginning means we didn't wait long enough for the first measurement after the AL was turned on?
 
 ```{r, fig.height=16}
 
 IndC %>% 
+  filter(between(jobdate,as.Date("2019-07-23"),as.Date("2019-07-29"))) %>% 
   group_by(gtype,jobdate,parameter) %>% 
   summarise(med = median(yii_avg,na.rm=T),
             sd  = sd(yii_avg,na.rm=T),
@@ -230,7 +249,7 @@ IndC %>%
   geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi), fill = 'grey80')+
   geom_line(aes(x=tInd, y = med))+
   facet_grid(jobdate~gtype)+
-    labs(title = "median YII across all reps with se")
+  labs(title = "median YII across all reps with se")
 
 
 ```
@@ -239,6 +258,7 @@ NPQ response to induction curves look as expected with a quick increase and plat
 ```{r, fig.height=16}
 
 IndC %>% 
+  filter(between(jobdate,as.Date("2019-07-23"),as.Date("2019-07-29"))) %>% 
   group_by(gtype,jobdate,parameter) %>% 
   summarise(med = median(npq_avg,na.rm=T),
             sd  = sd(npq_avg,na.rm=T),
@@ -257,9 +277,29 @@ IndC %>%
 
 ```
 
-The post processing showed that the most reps were imaged betwee 7/23 and 7/30 (~14 reps) before being reduced to ~5 reps (exception WT). I think this is when we swapped in the first round of amiRNA plants in part of the hotel.
+```{r, fig.height=24}
 
-Overall this next plot shows that the steadystate NPQ exhibited by the plants fall into 2 groups: nhd1, npq2, and WT have lower NPQ (<~1.5) while kea, npq4, and glk cluster higher (>~1.5). npq2 in particular also has a more shallow rise in NPQ during the induction curve. kea usually has the steepest rise.
+IndC %>% 
+  group_by(gtype,jobdate,parameter) %>% 
+  summarise(med = median(yii_avg,na.rm=T),
+            sd  = sd(yii_avg,na.rm=T),
+            hi = med+sd/sqrt(n()),
+            lo = med-sd/sqrt(n())) %>% 
+  mutate(tInd = parse_number(as.character(parameter))) %>%
+  ungroup() %>% 
+  tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) %>% #use fill to prevent NA facet
+  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-29') %>% 
+  ggplot()+
+  geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi, group=gtype), fill = 'grey80')+
+  geom_line(aes(x=tInd, y = med, color=gtype))+
+  facet_grid(jobdate~.)+
+  scale_color_manual(values = gtypecolorpal)+
+  labs(title = "median YII across all reps with se")
+
+```
+
+
+Overall this next plot shows NPQ trends as expected from these genotypes. low for npq4. quick rise and steady decline for npq2. WT and nhd1 fairly similar.
 
 ```{r, fig.height=24}
 
@@ -272,7 +312,7 @@ IndC %>%
   mutate(tInd = parse_number(as.character(parameter))) %>%
   ungroup() %>% 
   tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) %>% #use fill to prevent NA facet
-  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-30') %>% 
+  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-29') %>% 
   ggplot()+
   geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi, group=gtype), fill = 'grey80')+
   geom_line(aes(x=tInd, y = med, color=gtype))+
@@ -281,5 +321,8 @@ IndC %>%
   labs(title = "median NPQ across all reps with se")
 
 ```
+
+### Conclusion 1
+
 
 

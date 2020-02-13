@@ -40,10 +40,10 @@ gmap = read_csv(file.path(root,args[2])) %>% arrange(roi, plantbarcode)
 # get data processed
 output = read_csv(file.path(root, datadir,'output_psII_level0.csv'),
                   col_types = cols(gtype = col_character())) %>%
-  dplyr::select(gtype, sampleid, roi)
+  dplyr::select(gtype, plantbarcode, roi)
 
 # filter gmap for available output files
-gmap = inner_join(gmap, output) %>% distinct(sampleid, roi, gtype) %>% 
+gmap = inner_join(gmap, output) %>% distinct(plantbarcode, roi, gtype) %>% 
   mutate(treatment = 'control')
 
 # setup roi positions for genotype labels
@@ -58,12 +58,12 @@ y0 = 100
 yoffset = 260
 xpos = x0 + (rownum - 1) * xoffset
 ypos = y0 + (colnum - 1) * yoffset
-coords = crossing(xpos, ypos) %>% arrange(desc(ypos)) %>% mutate(roi = seq_len(nroi)-1) %>% inner_join(gmap)
+coords = crossing(xpos, ypos) %>% arrange(ypos) %>% mutate(roi = seq_len(nroi)-1) %>% inner_join(gmap)
 
 # function to create treatment label
 get_treatment <- function(traynum) {
   paste(traynum,
-        gmap %>% filter(sampleid == traynum) %>% distinct(treatment))
+        gmap %>% filter(plantbarcode == traynum) %>% distinct(treatment))
 }
 
 # get dates from filename
@@ -73,12 +73,12 @@ get_dates = function(fns) {
 }
 
 # create list of tray pairs for gifs
-fluc_ids = unique(gmap %>% filter(treatment != 'control') %>% pull(sampleid))
-cntrl_ids = unique(gmap %>% filter(treatment == 'control') %>% pull(sampleid))
+fluc_ids = unique(gmap %>% filter(treatment != 'control') %>% pull(plantbarcode))
+cntrl_ids = unique(gmap %>% filter(treatment == 'control') %>% pull(plantbarcode))
 if(length(fluc_ids)!=0){
   l = cross2(fluc_ids, cntrl_ids)
 } else {
-  l = as.list(gmap %>% distinct(sampleid) %>% pull)
+  l = as.list(gmap %>% distinct(plantbarcode) %>% pull)
 }
 # l=l[c(1,2)]
 
@@ -105,7 +105,7 @@ arrange_gif = function(il, parameter_string) {
   dtes0 = get_dates(fns0)
   
   # get genotypes
-  g0 = gmap %>% filter(sampleid == sampleid_c) %>% pull(gtype)
+  g0 = gmap %>% filter(plantbarcode == sampleid_c) %>% pull(gtype)
   
   # read images
   imgs0 = image_read(fns0)
@@ -134,7 +134,7 @@ arrange_gif = function(il, parameter_string) {
   )
   
   coords %>%
-    filter(sampleid == sampleid_c) %>%
+    filter(plantbarcode == sampleid_c) %>%
     group_by(xpos, ypos, roi) %>%
     group_walk(
       keep = T,
@@ -210,7 +210,7 @@ arrange_gif = function(il, parameter_string) {
     fns1 <- fns1[elements1]
     
     # get genotypes
-    g1 = gmap %>% filter(sampleid == sampleid_t) %>% pull(gtype)
+    g1 = gmap %>% filter(plantbarcode == sampleid_t) %>% pull(gtype)
     # crossing(dtes0,dtes1) #TODO: filter dates and filenames for common dates
     
     stopifnot(all(dtes0 == dtes1))
@@ -242,7 +242,7 @@ arrange_gif = function(il, parameter_string) {
     )
     
     coords %>%
-      filter(sampleid == sampleid_t) %>%
+      filter(plantbarcode == sampleid_t) %>%
       group_by(xpos, ypos, roi) %>%
       group_walk(
         keep = T,
@@ -291,7 +291,8 @@ arrange_gif = function(il, parameter_string) {
   }
 }
 
-param = 't320_ALon-NPQ'
-for (param in c('t320_ALon-YII')) {
+allparams = c('t80_ALon-NPQ','t320_ALon-NPQ', 'FvFm-YII', 't320_ALon-YII')
+# allparams = 't80_ALon-NPQ'
+for (param in allparams) {
   walk(l, arrange_gif, param)
 }
