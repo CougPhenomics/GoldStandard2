@@ -1,6 +1,5 @@
 # exclude everything except subdirectories
 *
-!*/
 
 # except these 
 !/*
@@ -18,8 +17,10 @@
 
 *.config
 .R*
+!*.Rmd
 *.log
 *.ipynb
 *.pyc
 .Rproj.user
 *.html
+*.pdf

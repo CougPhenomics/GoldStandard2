@@ -29,6 +29,31 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 ```
 
+```{r plotting-utils}
+# formatting of labels
+italic_labels <- function(names){
+  if(is.factor(names)){
+    names = as.character(names)
+  }
+sapply(strsplit(names,'[. ]'), 
+  function(x) {
+    if( all(x != 'WT') & length(x)>1){
+      x=tolower(x)
+        # parse(text = paste0(x[1],".","italic(", tolower(x[2]), ")"))
+        bquote(paste(.(x[1]),".",italic(.(x[2]))))
+      # substitute(paste(treatment,".",italic(gtype), list(treatment = tolower(x[1]) , gtype=tolower(x[2]) ) ))
+    } else if(all(x!='WT') & length(x)==1){
+      x=tolower(x)
+      substitute(italic(gtype), list(gtype=tolower(x) ) )
+        # parse(text = paste0("italic(", tolower(x), ")"))
+    } else if(length(x)>1){
+        paste(x[1],x[2],sep='.')
+    } else {
+        x
+    }
+  })}
+```
+
 # Analysis {.tabset .tabset-fade}
 
 ## VIS
@@ -302,8 +327,8 @@ IndC %>%
 Overall this next plot shows NPQ trends as expected from these genotypes. low for npq4. quick rise and steady decline for npq2. WT and nhd1 fairly similar.
 
 ```{r, fig.height=24}
-
-IndC %>% 
+npq_fill = 
+  IndC %>% 
   group_by(gtype,jobdate,parameter) %>% 
   summarise(med = median(npq_avg,na.rm=T),
             sd  = sd(npq_avg,na.rm=T),
@@ -311,18 +336,62 @@ IndC %>%
             lo = med-sd/sqrt(n())) %>% 
   mutate(tInd = parse_number(as.character(parameter))) %>%
   ungroup() %>% 
-  tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) %>% #use fill to prevent NA facet
-  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-29') %>% 
+  tidyr::complete(nesting(jobdate = seq(min(jobdate),max(jobdate),by=1)), fill = list(gtype = 'WT')) #use fill to prevent NA facet
+  
+  
+g=npq_fill %>%  
+  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-30') %>%
   ggplot()+
   geom_ribbon(aes(x=tInd, ymin = lo, ymax = hi, group=gtype), fill = 'grey80')+
   geom_line(aes(x=tInd, y = med, color=gtype))+
-  facet_grid(jobdate~.)+
-  scale_color_manual(values = gtypecolorpal)+
-  labs(title = "median NPQ across all reps with se")
+  facet_grid(~jobdate)+
+  scale_color_manual(values = gtypecolorpal,
+                     guide=guide_legend('Genotype', nrow=1,override.aes = list(size=2)),
+                     labels=italic_labels)+
+    labs(title = "Non-Photochemical Quenching (NPQ) over a Week",
+       subtitle = "median NPQ across all reps with standard error",
+       y = 'NPQ []',
+       x = 'Induction Time [s]')+
+  theme_bw(base_size = 30)+
+  theme(legend.position = 'bottom',
+        legend.direction = 'horizontal',
+        strip.background=element_blank(),
+         legend.key.height = unit(.05,'npc'),
+        legend.margin = unit(0,'npc'))
+
+ggsave(plot=g, filename='npq_indC_week.pdf',width=24, device=cairo_pdf)
+
 
 ```
 
-### Conclusion 1
 
+```{r, fig.width=24}
+
+fvfm %>% 
+  select(jobdate, gtype, contains('yii')) %>% 
+  filter(jobdate >= '2019-07-23', jobdate <= '2019-07-30', gtype!='nhd1') %>%
+  gather(var,value, contains('yii')) %>% 
+  group_by(gtype, jobdate, var) %>% 
+  summarise(med = median(value,na.rm=T),
+            se = sd(value,na.rm=T)) %>% 
+  ggplot()+
+  geom_col(aes(x=jobdate,y=med,fill=gtype),position='dodge')+
+  geom_errorbar(aes(x=jobdate, ymin=med-se, ymax=med+se, group=gtype),position=position_dodge2(width=0.5,padding=0.5))+
+  facet_wrap(~var, scales='free_y',  labeller=as_labeller(c('yii_avg'='Mean','yii_std'='Std Dev')))+
+  scale_fill_manual(guide=guide_legend('Genotype'),
+                    values = gtypecolorpal,
+                    labels = italic_labels)+
+  labs(y='Fv/Fm',
+       title='Max Photosynthetic Efficiency over a Week',
+       subtitle='each bar is the median of whole-plant mean or standard deviation, respectively. errorbars represent 1 std dev.')+
+  scale_x_date('Date', date_breaks='1 day')+
+  theme_bw(base_size=30)+
+  theme(strip.background = element_blank(),
+        # strip.text = element_blank(),
+        axis.text.x = element_text(angle=22, hjust=1,vjust=1),
+        legend.key.height = unit(.05,'npc'))
+
+ggsave(filename='fvfm-avg_over_sd.pdf', width=24)
+```
 
 
