@@ -1,0 +1,94 @@
+---
+title: "Identify and Describe Phenotypes for *npq2*, *npq4*, and WT"
+author: Dominik Schneider
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, message=F, warning=F, echo=F}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+library(tidyverse)
+library(fs)
+library(here)
+```
+
+# Background
+
+An experiment was completed over 18 days with the LemnaTec phenomics instrument to compare photosynthetic parameters across several different genotypes. There were 42 trays, each containing 2 Arabidopsis plants. The upper plant in the images is roi 0 and the lower plant in the images is roi 1. 
+Chlorophyll fluorescence was collected for each tray to calculated Fv/Fm and light-adapted YII and NPQ during an induction curve. The induction periods along the curve were every 20 seconds for 320 seconds. The delay between Fm and the illumination of the actinic light was 40 seconds, immediately followed by the first induction period.
+
+# Task
+
+For this project you will need to apply the theory you learned in the first 2 lectures to identify and describe the photosynthetic phenotypes. You only need to evaluate the NPQ mutants, *npq2* and *npq4*, and WT. You are already familiar with *npq4* and WT so only *npq2* is new to you.
+
+1. Filter the data file to include trays that only include the 3 genotypes in which we are interested.
+
+**HINT**  This should result in 9 trays, which are coded as the `plantbarcode`.
+
+2. Plot NPQ for the induction curves for each plant. 
+
+**HINT** You do not need a separate graph for every plant. Instead consider how these data can be plotted so that the NPQ-related phenotype is apparent.
+
+3. Describe your observations about the phenotype of the unknown  mutant, *npq2*.
+
+4. Suggest 1 possible mechanism that could cause the observed NPQ phenotype.
+
+5. Once you have identified the phenotype based on the data, use false color images of 2 trays at a single timepoint to visualize the NPQ phenotype of the plants.
+
+6. How do the phenotypes of these mutants compare with those of *L17* and *npq4* observed in the greenhouse phenomics system? What differences between the facilities could cause differences in observed phenotypes?
+
+You are required to show all your code to receive full credit.
+
+# Resources
+
+The directory structure is as follows:
+
+You will find the data file with extracted phenotypes in `data/output_psII_level1.csv`.
+
+You will find metadata about the experimental setup in `data/genotype_map.csv`.
+
+You will find fluorescence images in `data/psII`.
+
+
+```{r}
+fs::dir_tree(here(), rec=1)
+```
+
+# Example Induction Curves
+
+```{r}
+gtypemap = read_csv(here::here('data','genotype_map.csv'))
+
+ggroups = gtypemap %>% 
+  filter(gtype %in% c('npq2','npq4','WT')) %>% 
+  group_by(plantbarcode) %>% 
+  summarise(n=n()) %>% 
+  filter(n==2)
+
+gmap = gtypemap %>% semi_join(ggroups)
+
+```
+
+```{r}
+raw = read_csv(here::here('output','psII','output_psII_level1.csv')) %>% 
+  mutate(parameter = as_factor(parameter)) %>% 
+  inner_join(gmap)
+```
+
+```{r}
+
+raw %>% 
+    mutate(gtype=as_factor(gtype),
+         gtype = fct_relevel(gtype,'WT',after=0)) %>% 
+  filter(frame=='Fm' | frame=='Fmp', parameter !='FvFm') %>% 
+ggplot()+
+  geom_line(aes(x=parameter,y=npq_avg,color=jobdate,linetype=gtype,group=interaction(plantbarcode,gtype,roi,jobdate)))+
+  facet_wrap(vars(plantbarcode))+
+  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=.5))
+
+```
+
+
+

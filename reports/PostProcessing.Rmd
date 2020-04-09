@@ -8,10 +8,10 @@ output:
     fig_height: 6
     fig_width: 8
     output_dir: reports
-    toc: TRUE
-    toc_float: TRUE
+    toc: yes
     toc_depth: 3
-editor_options: 
+    toc_float: yes
+editor_options:
   chunk_output_type: console
 ---
 
